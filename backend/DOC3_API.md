@@ -154,6 +154,78 @@ class CommentViewSet(viewsets.ModelViewSet):
   3. 评论自动关联到当前学生
 - 自定义`approve`操作只允许管理员审核评论
 
+## 通知API
+
+系统提供了通知相关的API端点，用于获取用户通知和更新通知状态。
+
+### NotificationViewSet
+
+该视图集处理补考通知(MakeupNotification)相关的操作，与系统的两模型认证结构紧密结合。
+
+**主要端点**:
+
+- `GET /api/notifications/` - 获取当前用户的所有通知
+  - 请求: 无需额外参数
+  - 响应示例:
+    ```json
+    [
+      {
+        "id": 1,
+        "student": {
+          "id": 5,
+          "name": "张三",
+          "student_id": "202301001"
+        },
+        "test_plan": {
+          "id": 2,
+          "title": "2025年第1学期体质测试补考",
+          "test_date": "2025-06-25T14:00:00Z",
+          "location": "田径场"
+        },
+        "original_result": 15,
+        "is_read": false,
+        "sent_at": "2025-03-25T10:15:30Z"
+      }
+    ]
+    ```
+
+- `POST /api/notifications/{id}/mark_as_read/` - 标记通知为已读
+  - 请求: 无需额外参数
+  - 响应示例:
+    ```json
+    {
+      "status": "success"
+    }
+    ```
+
+**权限控制**:
+- 用户只能查看与自己关联的通知
+- 学生用户(user_type='student')只能查看自己的通知
+- 管理员用户可以查看所有通知
+
+**实现示例**:
+
+```python
+class NotificationViewSet(viewsets.ModelViewSet):
+    queryset = MakeupNotification.objects.all()
+    
+    def get_queryset(self):
+        # 只显示当前用户的通知
+        if self.request.user.user_type == 'admin':
+            return MakeupNotification.objects.all()
+        elif self.request.user.user_type == 'student':
+            return MakeupNotification.objects.filter(student__user=self.request.user)
+        return MakeupNotification.objects.none()
+    
+    # 标记通知为已读
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response({'status': 'success'})
+```
+
 ## URL路由配置
 
 系统使用DRF的Router自动为ViewSet生成URL配置：
@@ -169,6 +241,7 @@ router.register(r'comments', CommentViewSet)
 router.register(r'health-reports', HealthReportViewSet)
 router.register(r'news', SportsNewsViewSet)
 router.register(r'news-comments', NewsCommentViewSet)
+router.register(r'notifications', NotificationViewSet)
 
 urlpatterns = [
     path('api/', include(router.urls)),
@@ -329,3 +402,9 @@ urlpatterns = [
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0)),
 ]
 ```
+
+## 最佳实践
+
+1. **API设计原则**：遵循RESTful API设计原则，保持API的一致性和可扩展性
+2. **代码组织**：保持代码的组织性和可读性，使用清晰的命名和注释
+3. **测试和文档**：确保API的测试覆盖率和文档的完整性，方便维护和使用

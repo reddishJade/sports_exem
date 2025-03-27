@@ -1,59 +1,172 @@
 <template>
-  <div class="test-plan">
-    <div class="table-operations" style="margin-bottom: 16px">
-      <a-button type="primary" @click="showModal" v-if="isAdmin">添加体测计划</a-button>
-    </div>
+  <div class="test-plan-container">
+    <div class="test-plan">
+      <div class="page-header">
+        <h1 class="page-title">
+          <calendar-outlined /> 体测计划
+        </h1>
+        <p class="page-description">查看和管理体质测试安排</p>
+      </div>
 
-    <a-table :columns="columns" :data-source="plans" :loading="loading">
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'action'">
-          <a-space v-if="isAdmin">
-            <a @click="editPlan(record)">编辑</a>
-            <a-divider type="vertical" />
-            <a-popconfirm
-              title="确定要删除这个体测计划吗？"
-              @confirm="deletePlan(record.id)"
+      <div class="table-actions-container">
+        <div class="table-operations">
+          <a-space>
+            <a-button 
+              type="primary" 
+              @click="showModal" 
+              v-if="isAdmin" 
+              class="create-button"
             >
-              <a>删除</a>
-            </a-popconfirm>
+              <plus-outlined /> 添加体测计划
+            </a-button>
+            <a-input-search
+              v-model:value="searchValue"
+              placeholder="搜索计划标题或地点"
+              class="search-input"
+              @search="onSearch"
+            >
+              <template #prefix>
+                <search-outlined />
+              </template>
+            </a-input-search>
           </a-space>
-        </template>
-      </template>
-    </a-table>
+        </div>
+        <div class="filter-section" v-if="plans.length > 0">
+          <a-radio-group v-model:value="timeFilter" button-style="solid" @change="handleFilterChange">
+            <a-radio-button value="all">全部</a-radio-button>
+            <a-radio-button value="upcoming">即将到来</a-radio-button>
+            <a-radio-button value="past">已结束</a-radio-button>
+          </a-radio-group>
+        </div>
+      </div>
 
-    <a-modal
-      :title="modalTitle"
-      :open="visible"
-      @ok="handleOk"
-      @cancel="handleCancel"
-      :confirmLoading="confirmLoading"
-    >
-      <a-form
-        :model="formState"
-        :rules="rules"
-        ref="formRef"
-        :label-col="{ span: 6 }"
-        :wrapper-col="{ span: 16 }"
+      <div class="table-container">
+        <a-table 
+          :columns="columns" 
+          :data-source="filteredPlans" 
+          :loading="loading"
+          :pagination="{ 
+            showSizeChanger: true, 
+            pageSizeOptions: ['10', '20', '50'],
+            showTotal: total => `共 ${total} 条计划`
+          }"
+          :rowKey="record => record.id"
+          class="plans-table"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'action'">
+              <a-space v-if="isAdmin">
+                <a-button type="link" @click="editPlan(record)" class="action-button">
+                  <edit-outlined /> 编辑
+                </a-button>
+                <a-divider type="vertical" />
+                <a-popconfirm
+                  title="确定要删除这个体测计划吗？"
+                  @confirm="deletePlan(record.id)"
+                  placement="topRight"
+                  ok-text="确定"
+                  cancel-text="取消"
+                >
+                  <a-button type="link" danger class="action-button">
+                    <delete-outlined /> 删除
+                  </a-button>
+                </a-popconfirm>
+              </a-space>
+            </template>
+            <template v-else-if="column.key === 'title'">
+              <div class="plan-title">
+                {{ record.title }}
+                <a-tag 
+                  :color="isPlanUpcoming(record) ? 'processing' : 'default'" 
+                  class="plan-status"
+                >
+                  {{ isPlanUpcoming(record) ? '即将到来' : '已结束' }}
+                </a-tag>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'test_date'">
+              <div class="date-display">
+                <calendar-outlined class="date-icon" />
+                <span>{{ formatDate(record.test_date) }}</span>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'location'">
+              <div class="location-display">
+                <environment-outlined class="location-icon" />
+                <span>{{ record.location }}</span>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'description'">
+              <a-tooltip :title="record.description" placement="topLeft">
+                <div class="description-preview">
+                  {{ truncateText(record.description, 30) }}
+                </div>
+              </a-tooltip>
+            </template>
+          </template>
+          <template #expandedRowRender="{ record }">
+            <div class="expanded-description">
+              <div class="description-title">计划详情</div>
+              <div class="description-content">{{ record.description || '暂无详细描述' }}</div>
+            </div>
+          </template>
+        </a-table>
+      </div>
+
+      <a-modal
+        :title="modalTitle"
+        :open="visible"
+        @ok="handleOk"
+        @cancel="handleCancel"
+        :confirmLoading="confirmLoading"
+        class="plan-modal"
+        width="600px"
       >
-        <a-form-item label="标题" name="title">
-          <a-input v-model:value="formState.title" />
-        </a-form-item>
-        <a-form-item label="测试时间" name="test_date">
-          <a-date-picker
-            v-model:value="formState.test_date"
-            show-time
-            format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%"
-          />
-        </a-form-item>
-        <a-form-item label="地点" name="location">
-          <a-input v-model:value="formState.location" />
-        </a-form-item>
-        <a-form-item label="描述" name="description">
-          <a-textarea v-model:value="formState.description" :rows="4" />
-        </a-form-item>
-      </a-form>
-    </a-modal>
+        <a-form
+          :model="formState"
+          :rules="rules"
+          ref="formRef"
+          :label-col="{ span: 6 }"
+          :wrapper-col="{ span: 16 }"
+          class="plan-form"
+        >
+          <a-form-item label="标题" name="title">
+            <a-input 
+              v-model:value="formState.title" 
+              placeholder="请输入体测计划标题"
+              class="form-input"
+              :maxLength="100"
+            />
+          </a-form-item>
+          <a-form-item label="测试时间" name="test_date">
+            <a-date-picker
+              v-model:value="formState.test_date"
+              show-time
+              format="YYYY-MM-DD HH:mm:ss"
+              class="form-date-picker"
+              placeholder="选择测试日期时间"
+            />
+          </a-form-item>
+          <a-form-item label="地点" name="location">
+            <a-input 
+              v-model:value="formState.location" 
+              placeholder="请输入测试地点"
+              class="form-input"
+              :maxLength="100"
+            />
+          </a-form-item>
+          <a-form-item label="描述" name="description">
+            <a-textarea 
+              v-model:value="formState.description" 
+              :rows="4" 
+              placeholder="请输入计划详细描述"
+              class="form-textarea"
+              :maxLength="500"
+            />
+          </a-form-item>
+        </a-form>
+      </a-modal>
+    </div>
   </div>
 </template>
 
@@ -63,9 +176,25 @@ import { message } from 'ant-design-vue'
 import axios from 'axios'
 import { useStore } from 'vuex'
 import dayjs from 'dayjs'
+import { 
+  CalendarOutlined, 
+  PlusOutlined, 
+  SearchOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EnvironmentOutlined
+} from '@ant-design/icons-vue'
 
 export default defineComponent({
   name: 'TestPlan',
+  components: {
+    CalendarOutlined,
+    PlusOutlined,
+    SearchOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    EnvironmentOutlined
+  },
   setup() {
     const store = useStore()
     const loading = ref(false)
@@ -74,6 +203,8 @@ export default defineComponent({
     const modalTitle = ref('添加体测计划')
     const plans = ref([])
     const formRef = ref(null)
+    const searchValue = ref('')
+    const timeFilter = ref('all')
     
     const isAdmin = computed(() => store.getters.isAdmin)
 
@@ -96,13 +227,14 @@ export default defineComponent({
       {
         title: '标题',
         dataIndex: 'title',
-        key: 'title'
+        key: 'title',
+        sorter: (a, b) => a.title.localeCompare(b.title)
       },
       {
         title: '测试时间',
         dataIndex: 'test_date',
         key: 'test_date',
-        render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss')
+        sorter: (a, b) => new Date(a.test_date) - new Date(b.test_date)
       },
       {
         title: '地点',
@@ -110,10 +242,64 @@ export default defineComponent({
         key: 'location'
       },
       {
+        title: '说明',
+        dataIndex: 'description',
+        key: 'description'
+      },
+      {
         title: '操作',
-        key: 'action'
+        key: 'action',
+        width: '150px'
       }
     ]
+
+    // 判断计划是否即将到来
+    const isPlanUpcoming = (plan) => {
+      return dayjs(plan.test_date).isAfter(dayjs());
+    }
+
+    // 格式化日期
+    const formatDate = (date) => {
+      return dayjs(date).format('YYYY-MM-DD HH:mm');
+    }
+
+    // 截断文本
+    const truncateText = (text, maxLength) => {
+      if (!text) return '';
+      if (text.length <= maxLength) return text;
+      return text.substr(0, maxLength) + '...';
+    }
+
+    // 过滤计划
+    const filteredPlans = computed(() => {
+      let result = plans.value;
+      
+      // 应用时间过滤
+      if (timeFilter.value === 'upcoming') {
+        result = result.filter(plan => isPlanUpcoming(plan));
+      } else if (timeFilter.value === 'past') {
+        result = result.filter(plan => !isPlanUpcoming(plan));
+      }
+      
+      // 应用搜索过滤
+      if (searchValue.value) {
+        const search = searchValue.value.toLowerCase();
+        result = result.filter(plan => 
+          plan.title.toLowerCase().includes(search) || 
+          plan.location.toLowerCase().includes(search)
+        );
+      }
+      
+      return result;
+    });
+
+    const handleFilterChange = () => {
+      console.log('Filter changed:', timeFilter.value);
+    }
+
+    const onSearch = (value) => {
+      searchValue.value = value;
+    }
 
     const fetchPlans = async () => {
       loading.value = true
@@ -222,23 +408,163 @@ export default defineComponent({
       confirmLoading,
       modalTitle,
       plans,
+      filteredPlans,
       formState,
       formRef,
       rules,
       columns,
       isAdmin,
+      searchValue,
+      timeFilter,
       showModal,
       editPlan,
       handleOk,
       handleCancel,
-      deletePlan
+      deletePlan,
+      formatDate,
+      isPlanUpcoming,
+      truncateText,
+      onSearch,
+      handleFilterChange
     }
   }
 })
 </script>
 
 <style scoped>
+.test-plan-container {
+  background-color: #f5f7fa;
+  min-height: 100%;
+  padding: 16px;
+}
+
 .test-plan {
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 24px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.page-description {
+  color: #666;
+  font-size: 16px;
+}
+
+.table-actions-container {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.create-button {
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+}
+
+.search-input {
+  width: 250px;
+  border-radius: 6px;
+}
+
+.filter-section {
+  transition: all 0.3s ease;
+}
+
+.table-container {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.plans-table {
+  background-color: #fff;
+}
+
+.action-button {
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+}
+
+.plan-title {
+  font-weight: 500;
+  color: #303133;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-status {
+  font-size: 12px;
+}
+
+.date-display, .location-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-icon, .location-icon {
+  color: #1890ff;
+}
+
+.description-preview {
+  color: #606266;
+  cursor: pointer;
+}
+
+.expanded-description {
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+}
+
+.description-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #303133;
+}
+
+.description-content {
+  color: #606266;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+/* 表单样式 */
+.plan-modal {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.plan-form {
+  padding: 8px 16px;
+}
+
+.form-input, .form-date-picker, .form-textarea {
+  border-radius: 6px;
+  width: 100%;
+}
+
+.form-textarea {
+  resize: none;
 }
 </style>

@@ -6,8 +6,8 @@
 
 ## 技术栈
 
-- Python 3.8+
-- Django 3.2+
+- Python 3.11+
+- Django 5.1.5+
 - Django REST framework
 - SQLite (开发环境) / MySQL (可选生产环境)
 - JWT 认证

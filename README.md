@@ -104,7 +104,7 @@ python manage.py createsuperuser
 
 5. 填充测试数据：
 ```bash
-python manage.py populate_test_data
+python manage.py generate_test_data
 ```
 
 6. 启动开发服务器：

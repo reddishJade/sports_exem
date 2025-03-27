@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
-import LoginView from '../views/Login.vue'
+import LoginRegister from '../views/LoginRegister.vue'
 import store from '../store'
 
 const router = createRouter({
@@ -15,7 +15,7 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: LoginView
+      component: LoginRegister
     },
     {
       path: '/students',
@@ -30,15 +30,45 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/test-plans/:id',
+      name: 'test-plan-detail',
+      component: () => import('../views/TestPlanDetail.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/test-results',
       name: 'test-results',
-      component: () => import('../views/TestResult.vue'),
+      component: () => import('../views/TestResultManagement.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/test-results/:id',
+      name: 'test-result-detail',
+      component: () => import('../views/StudentTestResultDetail.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/test-results-input',
+      name: 'test-results-input',
+      component: () => import('../views/TestResultInput.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/test-results-analysis',
+      name: 'test-results-analysis',
+      component: () => import('../views/TestResultAnalysis.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/test-results-reports',
+      name: 'test-results-reports',
+      component: () => import('../views/TestResultReports.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
       path: '/scores',
       name: 'TestResults',
-      component: () => import('../views/TestResults.vue'),
+      component: () => import('../views/StudentTestResults.vue'),
       meta: { requiresAuth: true }
     },
     {
@@ -54,6 +84,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/health-reports/:id',
+      name: 'health-report-detail',
+      component: () => import('../views/HealthReportDetail.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/news',
       name: 'news-list',
       component: () => import('../views/NewsList.vue'),
@@ -63,6 +99,18 @@ const router = createRouter({
       path: '/news/:id',
       name: 'news-detail',
       component: () => import('../views/NewsDetail.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/notifications',
+      name: 'notifications',
+      component: () => import('../views/Notifications.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('../views/Profile.vue'),
       meta: { requiresAuth: true }
     }
   ]

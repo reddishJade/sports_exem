@@ -1,3 +1,10 @@
+<!--
+  @description 带有登录和注册功能的组合组件
+  @author Cascade AI
+  @date 2025-03-27
+  @version 1.0.0
+  @roles 所有用户 - 主要登录入口
+-->
 <template>
   <div class="login-container">
     <div class="login-background">
@@ -202,28 +209,38 @@ const registerRules = {
 
 const handleLogin = async () => {
   try {
-    await store.dispatch('login', loginForm.value)
-    message.success('登录成功')
-    const redirect = route.query.redirect || '/'
-    await router.push(redirect)
+    await loginFormRef.value.validate()
+    const success = await store.dispatch('login', loginForm.value)
+    if (success) {
+      message.success('登录成功')
+      const redirectPath = route.query.redirect || '/'
+      router.push(redirectPath)
+    } else {
+      message.error('登录失败，请检查用户名和密码')
+    }
   } catch (error) {
-    console.error('Login error:', error)
-    message.error(error.response?.data?.detail || '登录失败')
+    console.error('Login validation failed:', error)
   }
 }
 
 const handleRegister = async () => {
   try {
-    await store.dispatch('register', {
-      username: registerForm.value.username,
-      password: registerForm.value.password,
-      email: registerForm.value.email
-    })
-    message.success('注册成功')
-    router.push('/')
+    await registerFormRef.value.validate()
+    const success = await store.dispatch('register', registerForm.value)
+    if (success) {
+      message.success('注册成功，请登录')
+      activeKey.value = 'login'
+      registerForm.value = {
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
+      }
+    } else {
+      message.error('注册失败，请稍后再试')
+    }
   } catch (error) {
-    console.error('Register error:', error)
-    message.error(error.response?.data?.detail || '注册失败')
+    console.error('Register validation failed:', error)
   }
 }
 </script>
@@ -231,159 +248,117 @@ const handleRegister = async () => {
 <style scoped>
 .login-container {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   height: 100vh;
   width: 100vw;
-  position: relative;
   overflow: hidden;
+  position: relative;
 }
 
 .login-background {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: url('https://images.unsplash.com/photo-1517649763962-0c623066013b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1920&q=80');
+  width: 100%;
+  height: 100%;
+  background-image: url('/src/assets/login-bg.jpg');
   background-size: cover;
   background-position: center;
-  background-repeat: no-repeat;
-  z-index: -2;
+  z-index: -1;
 }
 
 .login-overlay {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(5px);
-  z-index: -1;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 0;
 }
 
 .login-content {
-  width: 100%;
-  max-width: 420px;
-  padding: 20px;
+  position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
+  width: 100%;
+  padding: 20px;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 32px;
-  animation: fadeInDown 1s;
+  margin-bottom: 2rem;
+  color: white;
 }
 
 .system-title {
-  color: #fff;
-  font-size: 36px;
-  font-weight: 700;
+  font-size: 2.5rem;
+  font-weight: bold;
+  letter-spacing: 2px;
   margin-bottom: 8px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .system-subtitle {
-  color: #e6f7ff;
-  font-size: 16px;
-  font-weight: 400;
-  margin: 0;
-  opacity: 0.8;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  font-size: 1.2rem;
+  opacity: 0.9;
+  letter-spacing: 1px;
 }
 
 .login-card {
   width: 100%;
+  max-width: 400px;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.9);
   overflow: hidden;
-  animation: fadeInUp 1s;
-  background: rgba(255, 255, 255, 0.95);
 }
 
-.login-tabs :deep(.ant-tabs-nav) {
-  margin-bottom: 24px;
-}
-
-.login-tabs :deep(.ant-tabs-tab) {
-  padding: 12px 16px;
-  font-size: 16px;
+.login-tabs {
+  margin-top: -16px;
 }
 
 .login-form {
-  padding: 8px 4px;
+  padding: 1rem 0.5rem;
 }
 
 .form-input {
-  height: 48px;
+  height: 50px;
   border-radius: 4px;
 }
 
 .input-icon {
-  color: #bfbfbf;
+  color: rgba(0, 0, 0, 0.45);
 }
 
 .submit-button {
-  height: 48px;
+  height: 50px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   border-radius: 4px;
   margin-top: 8px;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.35);
-  transition: all 0.3s;
-}
-
-.submit-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.5);
 }
 
 .login-footer {
-  margin-top: 24px;
-  color: rgba(255, 255, 255, 0.6);
-  text-align: center;
-  font-size: 14px;
-  animation: fadeInUp 1.5s;
+  margin-top: 2rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
 }
 
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (max-width: 576px) {
-  .login-content {
-    padding: 16px;
+@media (max-width: 768px) {
+  .login-card {
+    max-width: 90%;
   }
   
   .system-title {
-    font-size: 28px;
+    font-size: 2rem;
   }
   
   .system-subtitle {
-    font-size: 14px;
+    font-size: 1rem;
   }
 }
 </style>

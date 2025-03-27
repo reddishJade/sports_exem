@@ -10,7 +10,7 @@
 - Vue Router
 - Vuex
 - Axios
-- Element Plus
+- Ant Design Vue
 - TypeScript (部分使用)
 
 ## 功能特性

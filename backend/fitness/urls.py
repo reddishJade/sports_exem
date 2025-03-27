@@ -12,6 +12,7 @@ router.register(r'comments', views.CommentViewSet)
 router.register(r'health-reports', views.HealthReportViewSet)
 router.register(r'news', views.SportsNewsViewSet)
 router.register(r'news-comments', views.NewsCommentViewSet)
+router.register(r'notifications', views.NotificationViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

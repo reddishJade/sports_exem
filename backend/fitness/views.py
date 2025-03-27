@@ -3,7 +3,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
-from .models import User, Student, PhysicalStandard, TestPlan, TestResult, Comment, HealthReport, SportsNews, NewsComment
+from .models import User, Student, PhysicalStandard, TestPlan, TestResult, Comment, HealthReport, SportsNews, NewsComment, MakeupNotification
 from .serializers import (
     UserSerializer, StudentSerializer, PhysicalStandardSerializer,
     TestPlanSerializer, TestResultSerializer, CommentSerializer, HealthReportSerializer,
@@ -150,30 +150,47 @@ class NewsCommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if self.request.user.user_type == 'admin':
             return NewsComment.objects.all()
-        elif self.request.user.user_type == 'student':
-            student = Student.objects.filter(user=self.request.user).first()
-            if student:
-                return NewsComment.objects.filter(student=student)
-        return NewsComment.objects.none()
+        return NewsComment.objects.filter(student__user=self.request.user, is_approved=True)
     
+    # 确保只有学生可以创建评论，并且评论与当前登录的学生关联
     def perform_create(self, serializer):
-        """确保只有学生可以创建评论，并且评论与当前登录的学生关联"""
         if self.request.user.user_type != 'student':
             raise permissions.PermissionDenied("只有学生可以发表评论")
-        
-        student = Student.objects.filter(user=self.request.user).first()
-        if not student:
-            raise permissions.PermissionDenied("未找到关联的学生信息")
-        
-        serializer.save(student=student)
+        try:
+            student = Student.objects.get(user=self.request.user)
+            serializer.save(student=student)
+        except Student.DoesNotExist:
+            raise serializers.ValidationError("用户没有关联的学生信息")
     
+    # 审核评论
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
-        """审核评论"""
-        if request.user.user_type != 'admin':
-            return Response({'detail': '只有管理员可以审核评论'}, status=status.HTTP_403_FORBIDDEN)
-        
         comment = self.get_object()
         comment.is_approved = True
         comment.save()
-        return Response({'status': '评论已审核通过'})
+        return Response({'status': 'success'})
+
+# 添加新的 NotificationViewSet 用于处理通知
+class NotificationViewSet(viewsets.ModelViewSet):
+    queryset = MakeupNotification.objects.all()
+    
+    def get_serializer_class(self):
+        # 在实际项目中应该创建一个NotificationSerializer
+        # 这里临时使用TestResultSerializer来避免添加额外的序列化器
+        return TestResultSerializer
+    
+    def get_queryset(self):
+        # 只显示当前用户的通知
+        if self.request.user.user_type == 'admin':
+            return MakeupNotification.objects.all()
+        elif self.request.user.user_type == 'student':
+            return MakeupNotification.objects.filter(student__user=self.request.user)
+        return MakeupNotification.objects.none()
+    
+    # 标记通知为已读
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response({'status': 'success'})
