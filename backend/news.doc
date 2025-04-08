@@ -1,0 +1,224 @@
+新闻推送功能的后端实现
+数据模型设计
+新闻功能主要基于两个核心模型：
+
+SportsNews模型：存储新闻内容和元数据
+python
+CopyInsert
+class SportsNews(models.Model):
+    STATUS_CHOICES = (
+        ('draft', '草稿'),
+        ('published', '已发布'),
+        ('archived', '已归档'),
+    )
+    
+    title = models.CharField('标题', max_length=200)
+    content = models.TextField('内容')
+    source_url = models.URLField('来源URL', max_length=500, null=True, blank=True)
+    source_name = models.CharField('来源名称', max_length=100, null=True, blank=True)
+    pub_date = models.DateTimeField('发布时间', auto_now_add=True)
+    featured_image = models.URLField('特色图片URL', max_length=500, null=True, blank=True)
+    status = models.CharField('状态', max_length=20, choices=STATUS_CHOICES, default='published')
+    views = models.PositiveIntegerField('浏览次数', default=0)
+    keywords = models.CharField('关键词', max_length=500, null=True, blank=True)
+    is_featured = models.BooleanField('是否置顶', default=False)
+    
+    class Meta:
+        ordering = ['-is_featured', '-pub_date']  # 置顶新闻优先，然后按发布时间排序
+NewsComment模型：实现新闻评论功能
+python
+CopyInsert
+class NewsComment(models.Model):
+    news = models.ForeignKey(SportsNews, on_delete=models.CASCADE, related_name='comments')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='news_comments')
+    content = models.TextField('评论内容')
+    created_at = models.DateTimeField('评论时间', auto_now_add=True)
+    is_approved = models.BooleanField('是否已审核', default=False)
+API实现
+系统通过ViewSet实现新闻相关的API接口：
+
+SportsNewsViewSet：处理新闻的增删改查
+python
+CopyInsert
+class SportsNewsViewSet(viewsets.ModelViewSet):
+    queryset = SportsNews.objects.filter(status='published')
+    
+    # 为列表视图提供简化的序列化器
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return SportsNewsListSerializer
+        return SportsNewsSerializer
+    
+    # 浏览量统计功能
+    @action(detail=True, methods=['post'])
+    def increment_views(self, request, pk=None):
+        news = self.get_object()
+        news.views += 1
+        news.save()
+        return Response({'status': 'views updated'})
+    
+    # 获取新闻评论
+    @action(detail=True, methods=['get'])
+    def comments(self, request, pk=None):
+        news = self.get_object()
+        comments = NewsComment.objects.filter(news=news, is_approved=True)
+        serializer = NewsCommentSerializer(comments, many=True)
+        return Response(serializer.data)
+NewsCommentViewSet：管理新闻评论
+python
+CopyInsert
+class NewsCommentViewSet(viewsets.ModelViewSet):
+    # 评论创建权限控制，确保只有学生可以评论
+    def perform_create(self, serializer):
+        if self.request.user.user_type != 'student':
+            raise permissions.PermissionDenied("只有学生可以发表评论")
+        
+        student = Student.objects.filter(user=self.request.user).first()
+        if not student:
+            raise permissions.PermissionDenied("未找到关联的学生信息")
+        
+        serializer.save(student=student)
+    
+    # 评论审核功能
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        if request.user.user_type != 'admin':
+            return Response({'detail': '只有管理员可以审核评论'}, status=403)
+        
+        comment = self.get_object()
+        comment.is_approved = True
+        comment.save()
+        return Response({'status': '评论已审核通过'})
+序列化器设计
+系统针对不同场景使用不同的序列化器：
+
+完整新闻序列化器：包含所有字段，用于详情页
+python
+CopyInsert
+class SportsNewsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SportsNews
+        fields = '__all__'
+新闻列表序列化器：只包含列表页需要的字段，优化数据传输
+python
+CopyInsert
+class SportsNewsListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SportsNews
+        fields = ('id', 'title', 'pub_date', 'featured_image', 'source_name', 'is_featured', 'views')
+新闻推送功能的前端实现
+新闻列表页 (NewsList.vue)
+新闻列表页实现了以下功能：
+
+分页加载：通过分页机制加载新闻列表
+置顶新闻：置顶新闻在列表顶部显示，并有特殊样式
+搜索筛选：支持按标题和关键词搜索
+响应式布局：适配不同设备屏幕
+关键实现代码：
+
+javascript
+CopyInsert
+// 获取新闻列表
+async fetchNews() {
+  this.loading = true;
+  try {
+    const params = {
+      page: this.currentPage,
+      search: this.searchQuery || undefined
+    };
+    const response = await newsService.getNewsList(params);
+    this.newsList = response.results;
+    this.total = response.count;
+  } catch (error) {
+    this.handleError(error);
+  } finally {
+    this.loading = false;
+  }
+}
+新闻详情页 (NewsDetail.vue)
+新闻详情页实现了以下功能：
+
+内容展示：富文本内容渲染
+浏览统计：自动更新浏览次数
+评论系统：查看已审核评论，学生可发表新评论
+返回导航：便捷返回新闻列表
+关键实现代码：
+
+javascript
+CopyInsert
+// 更新浏览量
+async incrementViews() {
+  try {
+    await newsService.incrementViews(this.newsId);
+  } catch (error) {
+    console.error('更新浏览量失败', error);
+  }
+}
+
+// 加载评论
+async loadComments() {
+  this.loadingComments = true;
+  try {
+    const response = await newsService.getNewsComments(this.newsId);
+    this.comments = response;
+  } catch (error) {
+    this.handleError(error);
+  } finally {
+    this.loadingComments = false;
+  }
+}
+评论组件
+评论组件实现了严格的权限控制：
+
+权限校验：只有学生类型用户可以评论
+表单验证：确保评论内容不为空
+提交反馈：显示评论状态（待审核）
+关键实现代码：
+
+javascript
+CopyInsert
+// 检查是否可以评论
+computed: {
+  canComment() {
+    return this.$store.getters['auth/isStudent'] && 
+           !!this.$store.state.student.currentUserProfile;
+  }
+},
+
+// 提交评论
+async submitComment() {
+  if (!this.canComment) {
+    this.$message.error('只有学生可以发表评论');
+    return;
+  }
+  
+  if (!this.commentContent.trim()) {
+    this.$message.error('评论内容不能为空');
+    return;
+  }
+  
+  try {
+    await commentService.addNewsComment({
+      news: this.newsId,
+      content: this.commentContent
+    });
+    this.$message.success('评论提交成功，等待审核');
+    this.commentContent = '';
+    this.loadComments();
+  } catch (error) {
+    this.handleApiError(error);
+  }
+}
+新闻管理功能
+管理员可以通过后台管理新闻：
+
+新闻发布：创建和编辑新闻，设置状态（草稿/发布/归档）
+置顶设置：设置重要新闻置顶显示
+评论审核：审核学生发表的评论
+技术亮点
+分离的序列化器：针对列表和详情使用不同序列化器，优化数据传输
+浏览统计：实现浏览次数统计功能
+权限控制：严格的评论权限控制，只有学生可以评论
+关键词搜索：支持按标题和关键词搜索新闻
+响应式设计：适配不同设备的屏幕尺寸
+这种设计使得系统的新闻推送功能不仅具有良好的用户体验，还实现了严格的权限控制和数据管理能力。
