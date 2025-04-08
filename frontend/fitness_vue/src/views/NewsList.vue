@@ -189,6 +189,8 @@ onMounted(() => {
   background-color: #f5f7fa;
   min-height: 100%;
   padding: 16px;
+  max-height: 100vh;
+  overflow: auto;
 }
 
 .news-list {

@@ -152,7 +152,7 @@ const submitSuccess = ref(false)
 const submitMessage = ref('')
 const news = ref<News | null>(null)
 const comments = ref<Comment[]>([])
-const userType = ref(store.state.userType || '')
+const userType = ref(store.getters.userType || '')
 const commentForm = ref({
   content: '',
   news: null as number | null

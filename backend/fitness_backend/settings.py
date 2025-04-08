@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,6 +46,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'fitness',
+    'ai_chat',  # 新增AI聊天应用
     'rest_framework_simplejwt',
     'channels',
 ]
@@ -75,7 +81,14 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'fitness_backend.wsgi.application'
+ASGI_APPLICATION = 'fitness_backend.asgi.application'  # 为Channels添加ASGI配置
 
+# 添加Channels层配置
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -90,7 +103,7 @@ DATABASES = {
         'PORT': '3306',
         'OPTIONS': {
             'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'; SET NAMES 'utf8mb4'; SET CHARACTER SET utf8mb4; SET character_set_connection=utf8mb4; SET collation_connection=utf8mb4_unicode_ci;",
         }
     }
 }
@@ -166,3 +179,10 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# AI模型配置
+# AI服务配置，可以从环境变量中获取
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+USE_OLLAMA_BY_DEFAULT = os.environ.get('USE_OLLAMA_BY_DEFAULT', 'False').lower() == 'true'
+OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')

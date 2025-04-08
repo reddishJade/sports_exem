@@ -234,21 +234,82 @@ const submitting = ref(false)
 const fetchHealthReport = async () => {
   loading.value = true
   try {
-    // 在实际应用中，这里应该使用真实的API调用
-    // 在此使用模拟数据
-    const response = await axios.get(`/api/health-reports/${healthReportId}`)
-    healthReport.value = response.data
+    console.log('获取健康报告详情，ID:', healthReportId)
+    const response = await axios.get(`http://localhost:8000/api/health-reports/${healthReportId}/`, {
+      headers: { Authorization: `Bearer ${store.state.token}` }
+    })
+    
+    // 记录原始响应
+    console.log('健康报告API响应:', response.data)
+    
+    // 创建完整的健康报告对象
+    const report = { ...response.data }
+    
+    // 如果test_result是ID而不是对象，我们需要获取完整的测试结果
+    if (report.test_result && typeof report.test_result === 'number') {
+      try {
+        console.log('正在获取测试结果详情...')
+        const testResultResponse = await axios.get(`http://localhost:8000/api/test-results/${report.test_result}/`, {
+          headers: { Authorization: `Bearer ${store.state.token}` }
+        })
+        report.test_result = testResultResponse.data
+        console.log('测试结果详情:', report.test_result)
+        
+        // 如果学生是ID，需要获取学生详情
+        if (report.test_result.student && typeof report.test_result.student === 'number') {
+          try {
+            const studentResponse = await axios.get(`http://localhost:8000/api/students/${report.test_result.student}/`, {
+              headers: { Authorization: `Bearer ${store.state.token}` }
+            })
+            report.test_result.student = studentResponse.data
+            console.log('学生详情:', report.test_result.student)
+          } catch (studentError) {
+            console.error('获取学生信息失败:', studentError)
+          }
+        }
+      } catch (testResultError) {
+        console.error('获取测试结果详情失败:', testResultError)
+      }
+    }
+    
+    // 现在构建必要的字段
+    report.student_name = report.test_result?.student?.name || '未知'
+    report.student_id = report.test_result?.student?.student_id || '未知'
+    report.class_name = report.test_result?.student?.class_name || '未知'
+    report.report_id = `HR-${report.id}`
+    report.report_date = report.created_at ? new Date(report.created_at).toLocaleDateString() : '未知'
+    report.report_type = '体测健康报告'
+    report.bmi = report.test_result?.bmi || 0
+    report.weight = report.test_result?.weight || 0
+    report.height = report.test_result?.height || 0
+    report.health_analysis = report.overall_assessment || '暂无健康分析'
+    
+    // 准备测试指标数据
+    if (report.test_result) {
+      report.metrics = [
+        { name: '肺活量(ml)', value: report.test_result.vital_capacity || 0 },
+        { name: '50米跑(秒)', value: report.test_result.run_50m || 0 },
+        { name: '坐位体前屈(cm)', value: report.test_result.sit_and_reach || 0 },
+        { name: '立定跳远(cm)', value: report.test_result.standing_long_jump || 0 },
+        { name: '800米跑(秒)', value: report.test_result.run_800m || 0 }
+      ]
+    } else {
+      report.metrics = []
+    }
+    
+    healthReport.value = report
+    console.log('处理后的健康报告详情:', healthReport.value)
   } catch (error) {
     console.error('获取健康报告失败:', error)
     message.error('获取健康报告详情失败，请稍后再试')
-    // 使用模拟数据以展示页面
+    // 使用空对象避免界面报错
     healthReport.value = {
       id: healthReportId,
-      report_id: 'HR-2023-' + healthReportId,
-      report_date: '2023-10-20',
-      report_type: '学期体测健康报告',
-      student_name: '李四',
-      student_id: '2023002',
+      report_id: 'HR-' + healthReportId,
+      report_date: '未知',
+      report_type: '体测健康报告',
+      student_name: '未知',
+      student_id: '未知',
       class_name: '高二(2)班',
       height: 180,
       weight: 70,

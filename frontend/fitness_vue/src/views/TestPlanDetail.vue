@@ -71,7 +71,7 @@ const fetchTestPlan = async () => {
   try {
     // 在实际应用中，这里应该使用真实的API调用
     // 在此使用模拟数据
-    const response = await axios.get(`/api/test-plans/${testPlanId}`)
+    const response = await axios.get(`/api/test-plans/${testPlanId}`.replace(/\/\//g, '/'))
     testPlan.value = response.data
   } catch (error) {
     console.error('获取测试计划失败:', error)

@@ -7,7 +7,8 @@ from .models import User, Student, PhysicalStandard, TestPlan, TestResult, Comme
 from .serializers import (
     UserSerializer, StudentSerializer, PhysicalStandardSerializer,
     TestPlanSerializer, TestResultSerializer, CommentSerializer, HealthReportSerializer,
-    SportsNewsSerializer, SportsNewsListSerializer, NewsCommentSerializer
+    SportsNewsSerializer, SportsNewsListSerializer, NewsCommentSerializer,
+    MakeupNotificationSerializer
 )
 
 # Create your views here.
@@ -173,18 +174,18 @@ class NewsCommentViewSet(viewsets.ModelViewSet):
 # 添加新的 NotificationViewSet 用于处理通知
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = MakeupNotification.objects.all()
-    
-    def get_serializer_class(self):
-        # 在实际项目中应该创建一个NotificationSerializer
-        # 这里临时使用TestResultSerializer来避免添加额外的序列化器
-        return TestResultSerializer
+    serializer_class = MakeupNotificationSerializer
     
     def get_queryset(self):
         # 只显示当前用户的通知
         if self.request.user.user_type == 'admin':
             return MakeupNotification.objects.all()
         elif self.request.user.user_type == 'student':
-            return MakeupNotification.objects.filter(student__user=self.request.user)
+            try:
+                student = Student.objects.get(user=self.request.user)
+                return MakeupNotification.objects.filter(student=student)
+            except Student.DoesNotExist:
+                return MakeupNotification.objects.none()
         return MakeupNotification.objects.none()
     
     # 标记通知为已读
@@ -194,3 +195,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notification.is_read = True
         notification.save()
         return Response({'status': 'success'})
+
+class TestPlanViewSet(viewsets.ModelViewSet):
+    queryset = TestPlan.objects.all()
+    serializer_class = TestPlanSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAdminUser()]
+        return [permissions.IsAuthenticated()]

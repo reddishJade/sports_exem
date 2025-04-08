@@ -1,7 +1,11 @@
 import { createStore } from 'vuex'
 import axios from 'axios'
+import aiChat from './modules/aiChat'
 
 const store = createStore({
+  modules: {
+    aiChat
+  },
   state: {
     token: localStorage.getItem('token') || null,
     refreshToken: localStorage.getItem('refreshToken') || null,

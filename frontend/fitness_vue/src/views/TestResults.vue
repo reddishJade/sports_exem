@@ -26,7 +26,7 @@
                       &lt;eye-outlined /> 查看详情
                     &lt;/a>
                     &lt;a 
-                      v-if="!record.is_makeup && !record.is_passed" 
+                      v-if="!record.is_makeup && record.total_score < 60" 
                       class="action-link makeup-link"
                     >
                       &lt;warning-outlined /> 需要补考
@@ -43,6 +43,9 @@
                   &lt;a-tag :color="record.is_makeup ? 'orange' : 'green'" class="tag-cell">
                     {{ record.is_makeup ? '是' : '否' }}
                   &lt;/a-tag>
+                &lt;/template>
+                &lt;template v-else-if="column.key === 'test_plan'">
+                  &lt;div>{{ column.customRender({ text: record.test_plan, record }) }}&lt;/div>
                 &lt;/template>
               &lt;/template>
             &lt;/a-table>
@@ -221,8 +224,8 @@ let chart = null
 const columns = [
   {
     title: '测试计划',
-    dataIndex: ['test_plan', 'title'],
-    key: 'test_plan',
+    dataIndex: 'test_plan',
+    key: 'test_plan'
   },
   {
     title: '测试时间',
@@ -288,6 +291,7 @@ const fetchTestResults = async () => {
   loading.value = true
   try {
     const response = await axios.get('/api/test-results/')
+    console.log('API返回的成绩数据:', response.data)
     testResults.value = response.data
   } catch (error) {
     message.error('获取成绩数据失败')
@@ -509,6 +513,8 @@ onUnmounted(() => {
 
 .table-wrapper {
   margin-bottom: 24px;
+  overflow: auto;
+  max-height: 70vh;
 }
 
 .results-table {

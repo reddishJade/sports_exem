@@ -22,6 +22,7 @@ from fitness.auth import login, register, logout
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('fitness.urls')),
+    path('api/ai/', include('ai_chat.urls')),  # AI聊天应用URL
     path('api/auth/login/', login, name='login'),
     path('api/auth/register/', register, name='register'),
     path('api/auth/logout/', logout, name='logout'),

@@ -32,12 +32,22 @@
                     <a @click="showDetail(record)" class="action-link view-link">
                       <eye-outlined /> 查看详情
                     </a>
-                    <a 
-                      v-if="!record.is_makeup && !record.is_passed" 
-                      class="action-link makeup-link"
-                    >
-                      <warning-outlined /> 需要补考
-                    </a>
+                    <a-tooltip placement="right" v-if="!record.is_makeup && record.is_passed === false">
+                      <template #title>
+                        <span>总分达标，但以下项目未达标：</span>
+                        <ul class="failed-items-list">
+                          <!-- 使用实际体测标准判断每个项目 -->
+                          <li v-if="getPhysicalStandard(record, 'vital_capacity')">肺活量</li>
+                          <li v-if="getPhysicalStandard(record, 'run_50m')">50米跑</li>
+                          <li v-if="getPhysicalStandard(record, 'sit_and_reach')">坐位体前屈</li>
+                          <li v-if="getPhysicalStandard(record, 'standing_jump')">立定跳远</li>
+                          <li v-if="getPhysicalStandard(record, 'run_800m')">800米跑</li>
+                        </ul>
+                      </template>
+                      <a class="action-link makeup-link">
+                        <warning-outlined /> 需要补考
+                      </a>
+                    </a-tooltip>
                   </a-space>
                 </template>
                 <template v-else-if="column.key === 'total_score'">
@@ -308,7 +318,19 @@ const columns = [
 const fetchTestResults = async () => {
   loading.value = true
   try {
-    const response = await axios.get('/api/test-results/')
+    const token = store.state.token
+    const response = await axios.get('/api/test-results/', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    console.log('API返回的测试结果数据:', response.data)
+    // 检查每个结果的is_passed字段
+    if (response.data && response.data.length > 0) {
+      response.data.forEach((result, index) => {
+        console.log(`测试结果 ${index+1} - 总分: ${result.total_score}, is_passed: ${result.is_passed}, is_makeup: ${result.is_makeup}`)
+      })
+    }
     testResults.value = response.data
     loading.value = false
     
@@ -581,6 +603,51 @@ const getScoreBadgeClass = (score) => {
   if (score >= 70) return 'score-average'
   if (score >= 60) return 'score-pass'
   return 'score-fail'
+}
+
+// 体测标准参考值（根据实际测试结果分析得出）
+const physicalStandards = {
+  male: {
+    vital_capacity_pass: 3000,
+    run_50m_pass: 8.0,
+    sit_and_reach_pass: 10,
+    standing_jump_pass: 200,
+    run_800m_pass: 300
+  },
+  female: {
+    vital_capacity_pass: 2500,
+    run_50m_pass: 9.0,
+    sit_and_reach_pass: 12,
+    standing_jump_pass: 170,
+    run_800m_pass: 330
+  }
+}
+
+/**
+ * 检查测试项目是否未达标
+ * @param {Object} record - 测试记录
+ * @param {string} item - 测试项目名称
+ * @returns {boolean} - 如果未达标则返回true
+ */
+const getPhysicalStandard = (record, item) => {
+  // 从学生记录中获取性别
+  const gender = record.student && record.student.gender === 'female' ? 'female' : 'male'
+  const standard = physicalStandards[gender]
+  
+  switch(item) {
+    case 'vital_capacity':
+      return record.vital_capacity < standard.vital_capacity_pass
+    case 'run_50m':
+      return record.run_50m > standard.run_50m_pass
+    case 'sit_and_reach':
+      return record.sit_and_reach < standard.sit_and_reach_pass
+    case 'standing_jump':
+      return record.standing_jump < standard.standing_jump_pass
+    case 'run_800m':
+      return record.run_800m > standard.run_800m_pass
+    default:
+      return false
+  }
 }
 
 // 组件挂载时获取数据
@@ -890,5 +957,16 @@ onMounted(() => {
 
 .comment-item:hover {
   background-color: #f0f0f0;
+}
+
+/* 提示气泡样式 */
+.failed-items-list {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+  color: #ff4d4f;
+  font-size: 13px;
+}
+.failed-items-list li {
+  margin-bottom: 4px;
 }
 </style>

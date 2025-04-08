@@ -104,6 +104,13 @@
                 <router-link to="/notifications">补考通知</router-link>
               </a-menu-item>
 
+              <a-menu-item key="/ai-chat">
+                <template #icon>
+                  <MessageOutlined />
+                </template>
+                <router-link to="/ai-chat">AI助手</router-link>
+              </a-menu-item>
+
               <a-menu-item key="/profile">
                 <template #icon>
                   <UserOutlined />
@@ -226,8 +233,12 @@
               </div>
             </a-layout-content>
             
-            <a-layout-footer style="text-align: center">
-              体测管理系统 {{ new Date().getFullYear() }} | 打造专业体育测试管理平台
+            <a-layout-footer class="footer">
+              <div class="footer-content">
+                <span>体测管理系统 2025</span>
+                <span>|</span>
+                <span>打造专业体育测试管理平台</span>
+              </div>
             </a-layout-footer>
           </a-layout>
         </a-layout>
@@ -267,7 +278,8 @@ import {
   FormOutlined,
   PieChartOutlined,
   FilePdfOutlined,
-  NotificationOutlined
+  NotificationOutlined,
+  MessageOutlined
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
@@ -297,6 +309,7 @@ const BreadcrumbNav = {
         'health-reports': '体质报告',
         'news': '体育新闻',
         'notifications': '补考通知',
+        'ai-chat': 'AI助手',
         'profile': '个人信息'
       }
       
@@ -615,13 +628,18 @@ body {
 }
 
 /* 页脚样式 */
-.site-footer {
+.footer {
+  padding: 20px 0;
   text-align: center;
-  color: var(--text-secondary);
-  padding: 16px 24px;
-  height: var(--footer-height);
-  border-top: 1px solid #e8e8e8;
-  background: white;
+  background: #f5f5f5;
+}
+
+.footer-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  color: #666;
+  font-size: 14px;
 }
 
 /* 过渡动画 */

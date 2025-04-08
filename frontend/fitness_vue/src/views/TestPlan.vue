@@ -32,11 +32,24 @@
           </a-space>
         </div>
         <div class="filter-section" v-if="plans.length > 0">
-          <a-radio-group v-model:value="timeFilter" button-style="solid" @change="handleFilterChange">
+          <a-radio-group v-model:value="timeFilter" button-style="solid" @change="handleFilterChange" style="margin-bottom: 16px">
             <a-radio-button value="all">全部</a-radio-button>
             <a-radio-button value="upcoming">即将到来</a-radio-button>
             <a-radio-button value="past">已结束</a-radio-button>
           </a-radio-group>
+          
+          <div v-if="timeFilter === 'upcoming'" class="day-filter">
+            <div class="slider-label">筛选未来 <strong>{{ daysRange }}</strong> 天内的计划:</div>
+            <div class="slider-container">
+              <a-slider 
+                v-model:value="daysRange" 
+                :min="1" 
+                :max="90" 
+                :step="1"
+                @change="handleDaysRangeChange"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -201,10 +214,11 @@ export default defineComponent({
     const visible = ref(false)
     const confirmLoading = ref(false)
     const modalTitle = ref('添加体测计划')
-    const plans = ref([])
-    const formRef = ref(null)
     const searchValue = ref('')
     const timeFilter = ref('all')
+    const daysRange = ref(30) // 默认显示30天内的计划
+    const plans = ref([])
+    const formRef = ref(null)
     
     const isAdmin = computed(() => store.getters.isAdmin)
 
@@ -273,28 +287,45 @@ export default defineComponent({
     // 过滤计划
     const filteredPlans = computed(() => {
       let result = plans.value;
+      const today = dayjs().startOf('day');
       
-      // 应用时间过滤
-      if (timeFilter.value === 'upcoming') {
-        result = result.filter(plan => isPlanUpcoming(plan));
-      } else if (timeFilter.value === 'past') {
-        result = result.filter(plan => !isPlanUpcoming(plan));
+      if (!searchValue.value && timeFilter.value === 'all') {
+        return plans.value
       }
       
-      // 应用搜索过滤
-      if (searchValue.value) {
-        const search = searchValue.value.toLowerCase();
-        result = result.filter(plan => 
-          plan.title.toLowerCase().includes(search) || 
-          plan.location.toLowerCase().includes(search)
-        );
-      }
-      
-      return result;
-    });
+      return plans.value.filter(plan => {
+        // 搜索筛选
+        const matchesSearch = !searchValue.value || 
+          plan.title.toLowerCase().includes(searchValue.value.toLowerCase()) ||
+          plan.location.toLowerCase().includes(searchValue.value.toLowerCase())
+        
+        // 时间筛选
+        let matchesTimeFilter = true
+        if (timeFilter.value !== 'all') {
+          const planDate = dayjs(plan.test_date)
+          
+          if (timeFilter.value === 'upcoming') {
+            // 判断是否在选定的天数范围内
+            const futureDate = today.add(daysRange.value, 'day')
+            matchesTimeFilter = (planDate.isAfter(today) && planDate.isBefore(futureDate)) || planDate.isSame(today, 'day')
+          } else {
+            // 过去的计划
+            matchesTimeFilter = planDate.isBefore(today)
+          }
+        }
+        
+        return matchesSearch && matchesTimeFilter
+      })
+    })
 
     const handleFilterChange = () => {
       console.log('Filter changed:', timeFilter.value);
+    }
+    
+    const handleDaysRangeChange = (value) => {
+      console.log('Days range changed:', value);
+      // 滑动条值改变后重新过滤计划
+      daysRange.value = value;
     }
 
     const onSearch = (value) => {
@@ -416,6 +447,7 @@ export default defineComponent({
       isAdmin,
       searchValue,
       timeFilter,
+      daysRange,
       showModal,
       editPlan,
       handleOk,
@@ -425,7 +457,8 @@ export default defineComponent({
       isPlanUpcoming,
       truncateText,
       onSearch,
-      handleFilterChange
+      handleFilterChange,
+      handleDaysRangeChange
     }
   }
 })
@@ -566,5 +599,24 @@ export default defineComponent({
 
 .form-textarea {
   resize: none;
+}
+
+/* 滑动条样式 */
+.day-filter {
+  background-color: #f9f9f9;
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.slider-label {
+  margin-bottom: 12px;
+  color: #555;
+  font-size: 14px;
+}
+
+.slider-container {
+  padding: 0 10px;
 }
 </style>

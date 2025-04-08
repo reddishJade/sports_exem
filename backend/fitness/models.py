@@ -119,16 +119,33 @@ class TestResult(models.Model):
         standard = PhysicalStandard.objects.get(gender=self.student.gender)
         
         # 检查每个项目是否达到及格标准
+        vital_capacity_passed = self.vital_capacity >= standard.vital_capacity_pass
+        run_50m_passed = self.run_50m <= standard.run_50m_pass  # 跑步项目时间越短越好
+        sit_and_reach_passed = self.sit_and_reach >= standard.sit_and_reach_pass
+        standing_jump_passed = self.standing_jump >= standard.standing_jump_pass
+        run_800m_passed = self.run_800m <= standard.run_800m_pass  # 跑步项目时间越短越好
+        
         passed_items = [
-            self.vital_capacity >= standard.vital_capacity_pass,
-            self.run_50m <= standard.run_50m_pass,  # 跑步项目时间越短越好
-            self.sit_and_reach >= standard.sit_and_reach_pass,
-            self.standing_jump >= standard.standing_jump_pass,
-            self.run_800m <= standard.run_800m_pass,  # 跑步项目时间越短越好
+            vital_capacity_passed,
+            run_50m_passed,
+            sit_and_reach_passed,
+            standing_jump_passed,
+            run_800m_passed
         ]
         
-        # 总分及格线为60分
-        return self.total_score >= 60 and all(passed_items)
+        # 打印调试信息
+        print(f"TestResult ID: {self.id}, Student: {self.student.name}, Total Score: {self.total_score}")
+        print(f"  肺活量通过: {vital_capacity_passed} ({self.vital_capacity} >= {standard.vital_capacity_pass})")
+        print(f"  50米跑通过: {run_50m_passed} ({self.run_50m} <= {standard.run_50m_pass})")
+        print(f"  坐位体前屈通过: {sit_and_reach_passed} ({self.sit_and_reach} >= {standard.sit_and_reach_pass})")
+        print(f"  立定跳远通过: {standing_jump_passed} ({self.standing_jump} >= {standard.standing_jump_pass})")
+        print(f"  800米跑通过: {run_800m_passed} ({self.run_800m} <= {standard.run_800m_pass})")
+        print(f"  全部项目通过: {all(passed_items)}")
+        
+        # 总分及格线为60分，且所有单项均须达标
+        passed = self.total_score >= 60 and all(passed_items)
+        print(f"  最终是否通过: {passed} (总分>=60 AND 所有项目通过)")
+        return passed
 
 class Comment(models.Model):
     test_result = models.ForeignKey(TestResult, on_delete=models.CASCADE, verbose_name='测试成绩')

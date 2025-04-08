@@ -38,13 +38,20 @@
           :columns="columns" 
           :data-source="reports" 
           :loading="loading" 
-          :pagination="{ 
-            showSizeChanger: true, 
+          :pagination="{
+            current: currentPage,
+            pageSize: pageSize,
+            total: total,
+            showSizeChanger: true,
             pageSizeOptions: ['10', '20', '50'],
-            showTotal: total => `共 ${total} 条记录`
+            showTotal: (total) => `共 ${total} 条记录`,
+            onChange: handlePageChange,
+            onShowSizeChange: handlePageSizeChange
           }"
+          @change="handlePageChange"
           :rowKey="record => record.id"
           class="reports-table"
+          :row-class-name="record => record._hasError ? (record._errorType === 'missing' ? 'row-warning' : 'row-error') : ''"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'action'">
@@ -53,17 +60,14 @@
                   <eye-outlined /> 查看
                 </a-button>
                 <template v-if="isAdmin">
-                  <a-divider type="vertical" />
                   <a-button type="link" @click="editReport(record)" class="action-button">
                     <edit-outlined /> 编辑
                   </a-button>
-                  <a-divider type="vertical" />
                   <a-popconfirm
-                    title="确定要删除这个报告吗？"
-                    @confirm="deleteReport(record.id)"
-                    placement="topRight"
-                    ok-text="确定"
-                    cancel-text="取消"
+                    title="确定要删除这个体质报告吗？"
+                    @confirm="deleteReport(record)"
+                    ok-text="是"
+                    cancel-text="否"
                   >
                     <a-button type="link" danger class="action-button">
                       <delete-outlined /> 删除
@@ -72,10 +76,21 @@
                 </template>
               </a-space>
             </template>
+            <template v-else-if="column.key === 'student_name'">
+              <span v-if="record._hasError">
+                {{ record.student_name }}
+                <a-tag v-if="record._errorType === 'missing'" color="orange" style="margin-left: 8px">数据缺失</a-tag>
+                <a-tag v-else color="red" style="margin-left: 8px">加载错误</a-tag>
+              </span>
+              <span v-else>{{ record.student_name }}</span>
+            </template>
+            <template v-else-if="column.key === 'test_date'">
+              <span v-if="record._hasError" style="color: #faad14">{{ record.test_date }}</span>
+              <span v-else>{{ record.test_date }}</span>
+            </template>
             <template v-else-if="column.key === 'total_score'">
-              <a-tag :color="getScoreTagColor(record.test_result.total_score)" class="score-tag">
-                {{ record.test_result.total_score }}
-              </a-tag>
+              <span v-if="record._hasError" :style="{ color: record._errorType === 'missing' ? '#faad14' : '#ff4d4f' }">{{ record.total_score }}</span>
+              <span v-else>{{ record.total_score }}</span>
             </template>
           </template>
         </a-table>
@@ -137,14 +152,13 @@
         width="800px"
         class="detail-modal"
         :footer="null"
+        :closable="false"
+        :bodyStyle="{ maxHeight: '80vh', overflow: 'auto' }"
       >
         <div class="report-detail-header">
           <h2 class="report-title">
             <medicine-box-outlined /> 体质评估报告
           </h2>
-          <a-button @click="closeDetail" class="close-button">
-            <close-outlined />
-          </a-button>
         </div>
         
         <a-divider class="divider-light" />
@@ -186,6 +200,21 @@
             </a-row>
           </div>
 
+          <!-- 显示错误提示 -->
+          <div v-if="currentDetail.test_result && currentDetail.test_result._error" class="error-alert">
+            <a-alert
+              :type="currentDetail.test_result._errorType === 'missing' ? 'info' : 'warning'"
+              :message="currentDetail.test_result._errorType === 'missing' ? '测试结果数据缺失' : '测试结果数据加载错误'"
+              :description="currentDetail.test_result._errorMessage || '无法加载测试结果数据'"
+              show-icon
+            >
+              <template #icon>
+                <ExclamationCircleOutlined v-if="currentDetail.test_result._errorType !== 'missing'" />
+                <InfoCircleOutlined v-else />
+              </template>
+            </a-alert>
+          </div>
+          
           <div class="report-content-section">
             <div class="section-card">
               <div class="section-title">
@@ -210,7 +239,25 @@
                 <bar-chart-outlined /> 各项指标详情
               </div>
               <div class="section-content">
-                <a-row :gutter="[24, 24]">
+                <!-- 显示无数据提示 -->
+                <div v-if="currentDetail.test_result && currentDetail.test_result._error" class="no-data-container">
+                  <a-empty
+                    :description="'测试结果数据不可用'"
+                    :image="Empty.PRESENTED_IMAGE_SIMPLE"
+                  >
+                    <template #description>
+                      <span>{{ currentDetail.test_result._errorMessage || '测试结果数据不可用' }}</span>
+                    </template>
+                    <template #extra>
+                      <p v-if="currentDetail.test_result._errorType === 'missing'" class="missing-data-hint">
+                        您仍然可以查看报告的总体评估和健康建议
+                      </p>
+                    </template>
+                  </a-empty>
+                </div>
+                
+                <!-- 显示正常数据 -->
+                <a-row v-else :gutter="[24, 24]">
                   <a-col :xs="24" :sm="12" :md="8">
                     <div class="indicator-card">
                       <a-statistic 
@@ -278,22 +325,26 @@
 
 <script>
 import { defineComponent, ref, onMounted, computed } from 'vue'
-import { message } from 'ant-design-vue'
-import axios from 'axios'
-import { useStore } from 'vuex'
-import dayjs from 'dayjs'
+import { message, Empty } from 'ant-design-vue'
 import { 
+  EyeOutlined, 
+  EditOutlined, 
+  DeleteOutlined, 
   MedicineBoxOutlined, 
-  PlusOutlined, 
+  SafetyOutlined, 
+  BulbOutlined, 
+  BarChartOutlined,
+  ExclamationCircleOutlined,
+  InfoCircleOutlined,
+  PlusOutlined,
   SearchOutlined,
-  EyeOutlined,
-  EditOutlined,
-  DeleteOutlined,
   CloseOutlined,
-  SafetyOutlined,
-  BulbOutlined,
-  BarChartOutlined
+  WarningOutlined
 } from '@ant-design/icons-vue'
+import axios from 'axios'
+import dayjs from 'dayjs'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 
 export default defineComponent({
   name: 'HealthReport',
@@ -307,7 +358,10 @@ export default defineComponent({
     CloseOutlined,
     SafetyOutlined,
     BulbOutlined,
-    BarChartOutlined
+    BarChartOutlined,
+    WarningOutlined,
+    ExclamationCircleOutlined,
+    InfoCircleOutlined
   },
   setup() {
     const store = useStore()
@@ -321,6 +375,9 @@ export default defineComponent({
     const formRef = ref(null)
     const currentDetail = ref(null)
     const searchValue = ref('')
+    const currentPage = ref(1)
+    const pageSize = ref(10)
+    const total = ref(0)
     
     const isAdmin = computed(() => store.getters.isAdmin)
 
@@ -339,19 +396,18 @@ export default defineComponent({
 
     const columns = [
       {
-        title: '学生',
-        dataIndex: ['test_result', 'student', 'name'],
+        title: '学生姓名',
+        dataIndex: 'student_name',
         key: 'student_name'
       },
       {
         title: '测试日期',
-        dataIndex: ['test_result', 'test_date'],
-        key: 'test_date',
-        render: (text) => dayjs(text).format('YYYY-MM-DD')
+        dataIndex: 'test_date',
+        key: 'test_date'
       },
       {
         title: '总分',
-        dataIndex: ['test_result', 'total_score'],
+        dataIndex: 'total_score',
         key: 'total_score'
       },
       {
@@ -422,16 +478,243 @@ export default defineComponent({
       }
     }
 
-    const fetchReports = async () => {
+    const fetchReports = async (page = 1) => {
       loading.value = true
       try {
+        // 启用控制台日志跟踪问题
+        console.log('Fetching health reports...')
+        
+        // 获取健康报告数据
         const response = await axios.get('http://localhost:8000/api/health-reports/', {
-          headers: { Authorization: `Bearer ${store.state.token}` }
+          headers: { Authorization: `Bearer ${store.state.token}` },
+          params: {
+            page,
+            page_size: pageSize.value,
+            search: searchValue.value ? searchValue.value.trim() : undefined
+          }
         })
-        reports.value = response.data
+        
+        console.log('API Response:', response.data)
+        
+        let rawData = []
+        
+        // 检查是否是分页响应
+        if (response.data && Array.isArray(response.data.results)) {
+          rawData = response.data.results
+          total.value = response.data.count || rawData.length
+        } else if (Array.isArray(response.data)) {
+          rawData = response.data
+          total.value = rawData.length
+        } else {
+          console.error('Unexpected API response format:', response.data)
+          rawData = []
+          total.value = 0
+          loading.value = false
+          return
+        }
+        
+        if (rawData.length === 0) {
+          message.info('没有找到体质报告数据')
+          reports.value = []
+          loading.value = false
+          return
+        }
+        
+        console.log('原始健康报告数据:', rawData[0])
+        
+        // 创建一个映射来跟踪所有需要加载的测试结果 ID
+        const testResultIdsToFetch = new Set()
+        
+        // 首先将原始数据复制到报告中，并收集所有需要加载的 ID
+        const initialReports = rawData.map(report => {
+          const transformedReport = { ...report }
+          
+          // 如果 test_result 是一个 ID，将其添加到要获取的列表中
+          if (report.test_result && typeof report.test_result === 'number') {
+            testResultIdsToFetch.add(report.test_result)
+            transformedReport.test_result_id = report.test_result
+            transformedReport.test_date = '加载中...'
+            transformedReport.total_score = '加载中...'
+            transformedReport.student_name = '加载中...'
+          } else if (report.test_result && typeof report.test_result === 'object') {
+            transformedReport.test_date = report.test_result.test_date 
+              ? dayjs(report.test_result.test_date).format('YYYY-MM-DD') 
+              : '未知'
+            transformedReport.total_score = report.test_result.total_score ?? '未知'
+            
+            if (report.test_result.student) {
+              if (typeof report.test_result.student === 'object') {
+                transformedReport.student_name = report.test_result.student.name || '未知'
+              } else {
+                // 如果 student 是 ID，我们需要稍后获取
+                transformedReport.student_id = report.test_result.student
+                transformedReport.student_name = '加载中...'
+              }
+            } else {
+              transformedReport.student_name = '未知'
+            }
+          } else {
+            transformedReport.test_date = '未知'
+            transformedReport.total_score = '未知'
+            transformedReport.student_name = '未知'
+          }
+          
+          return transformedReport
+        })
+        
+        // 首先将初始数据显示到表格上
+        reports.value = initialReports
+        
+        // 现在加载所有测试结果
+        if (testResultIdsToFetch.size > 0) {
+          console.log(`需要加载 ${testResultIdsToFetch.size} 个测试结果`)
+          
+          // 为每个测试结果 ID 单独回去服务器获取数据
+          const testResultPromises = Array.from(testResultIdsToFetch).map(async testResultId => {
+            try {
+              const response = await axios.get(`http://localhost:8000/api/test-results/${testResultId}/`, {
+                headers: { Authorization: `Bearer ${store.state.token}` }
+              })
+              return { id: testResultId, data: response.data }
+            } catch (error) {
+              console.error(`获取测试结果 ID ${testResultId} 失败:`, error)
+              return { id: testResultId, data: null, error, errorStatus: error.response?.status || 'unknown' }
+            }
+          })
+          
+          // 等待所有测试结果加载完成
+          const testResultsData = await Promise.all(testResultPromises)
+          
+          // 创建一个映射以快速访问测试结果
+          const testResultsMap = {}
+          const studentIdsToFetch = new Set()
+          
+          testResultsData.forEach(result => {
+            if (result.data) {
+              testResultsMap[result.id] = result.data
+              
+              // 如果还需要获取学生数据
+              if (result.data.student && typeof result.data.student === 'number') {
+                studentIdsToFetch.add(result.data.student)
+              }
+            } else {
+              // 创建一个虚拟的测试结果对象，用于显示错误信息
+              testResultsMap[result.id] = {
+                id: result.id,
+                test_date: null,
+                total_score: result.errorStatus === 404 ? '数据缺失' : '加载错误',
+                student: null,
+                _error: true,
+                _errorStatus: result.errorStatus,
+                _errorMessage: result.errorStatus === 404 
+                  ? '测试结果数据不存在或已被删除' 
+                  : `加载测试结果失败 (${result.errorStatus})`
+              }
+            }
+          })
+          
+          // 需要更新的学生数据
+          let studentsMap = {}
+          
+          // 如果有学生 ID 需要加载
+          if (studentIdsToFetch.size > 0) {
+            console.log(`需要加载 ${studentIdsToFetch.size} 个学生信息`)
+            
+            const studentPromises = Array.from(studentIdsToFetch).map(async studentId => {
+              try {
+                const response = await axios.get(`http://localhost:8000/api/students/${studentId}/`, {
+                  headers: { Authorization: `Bearer ${store.state.token}` }
+                })
+                return { id: studentId, data: response.data }
+              } catch (error) {
+                console.error(`获取学生 ID ${studentId} 失败:`, error)
+                return { id: studentId, data: null, error }
+              }
+            })
+            
+            const studentsData = await Promise.all(studentPromises)
+            
+            // 构建学生映射
+            studentsData.forEach(student => {
+              if (student.data) {
+                studentsMap[student.id] = student.data
+              }
+            })
+          }
+          
+          // 现在更新所有报告中的测试结果和学生数据
+          reports.value = reports.value.map(report => {
+            // 如果有测试结果 ID，更新相关数据
+            if (report.test_result_id && testResultsMap[report.test_result_id]) {
+              const testResult = testResultsMap[report.test_result_id]
+              
+              // 在报告中存储完整的测试结果
+              report.testResult = testResult
+
+              // 如果测试结果是错误状态
+              if (testResult._error) {
+                report.test_date = '未知'
+                report.total_score = testResult.total_score || '错误'
+                report.student_name = '未知'
+                report.errorStatus = testResult._errorStatus
+                report.errorMessage = testResult._errorMessage
+                // 添加可视化标记，使UI能够清晰显示错误状态
+                report._hasError = true
+                report._errorType = testResult._errorStatus === 404 ? 'missing' : 'error'
+              } else {
+                // 正常更新测试日期和总分
+                report.test_date = testResult.test_date 
+                  ? dayjs(testResult.test_date).format('YYYY-MM-DD') 
+                  : '未知'
+                report.total_score = testResult.total_score ?? '未知'
+                
+                // 更新学生信息
+                if (testResult.student) {
+                  if (typeof testResult.student === 'object') {
+                    report.student_name = testResult.student.name || '未知'
+                    report.student = testResult.student
+                  } else if (typeof testResult.student === 'number' && studentsMap[testResult.student]) {
+                    report.student_name = studentsMap[testResult.student].name || '未知'
+                    report.student = studentsMap[testResult.student]
+                  } else {
+                    report.student_name = '未知'
+                  }
+                } else {
+                  report.student_name = '未知'
+                }
+              }
+            }
+            
+            return report
+          })
+          
+          console.log('所有数据加载完成，更新后的报告:', reports.value[0])
+        }
+        
+        console.log('Transformed data for table:', reports.value)
+
+        if (reports.value.length === 0) {
+          message.info('没有找到体质报告数据')
+        }
       } catch (error) {
-        message.error('获取体质报告失败')
-        console.error(error)
+        console.error('获取体质报告错误:', error)
+        if (error.isAxiosError) {
+          console.log('Axios Error Config:', error.config)
+          console.log('Error Response Status:', error.response?.status)
+          console.log('Error Response Data:', error.response?.data)
+          
+          if (error.response?.status === 401) {
+            message.error('认证失败，请重新登录')
+            // 清除token并重定向到登录页
+            store.commit('setToken', null)
+            store.commit('setUser', null)
+            router.push('/login')
+          } else {
+            message.error('获取体质报告失败: ' + (error.response?.data?.detail || error.message || '未知错误'))
+          }
+        } else {
+          message.error('获取体质报告失败')
+        }
       } finally {
         loading.value = false
       }
@@ -526,8 +809,56 @@ export default defineComponent({
     }
 
     const viewReport = (record) => {
-      currentDetail.value = record
-      detailVisible.value = true
+      console.log('Viewing report details:', record)
+      try {
+        if (!record) {
+          console.error('记录不存在')
+          message.error('无法查看详情：记录不存在')
+          return
+        }
+        
+        // 检查是否有错误信息
+        if (record.errorStatus) {
+          let errorMessage = '无法加载测试结果';
+          let errorType = 'error';
+          
+          if (record.errorStatus === 404) {
+            errorMessage = '测试结果数据不存在，可能已被删除';
+            errorType = 'missing';
+          } else if (record.errorMessage) {
+            errorMessage = record.errorMessage;
+          }
+          
+          // 显示警告但不阻止用户查看报告
+          message.warning(errorMessage);
+          
+          // 仍然显示报告，但会标记测试结果数据有问题
+          record.test_result = {
+            _error: true,
+            _errorType: errorType,
+            _errorMessage: errorMessage,
+            _errorStatus: record.errorStatus
+          };
+        }
+        
+        // 如果没有测试结果，创建一个空的测试结果对象
+        if (!record.test_result) {
+          record.test_result = {
+            _error: true,
+            _errorType: 'missing',
+            _errorMessage: '测试结果数据不存在',
+            _errorStatus: 404
+          };
+          message.warning('测试结果数据不存在');
+        }
+        
+        currentDetail.value = record;
+        console.log('Current detail set to:', currentDetail.value);
+        detailVisible.value = true;
+      } catch (error) {
+        console.error('查看报告详情时出错:', error)
+        message.error('无法查看详情')
+      }
     }
 
     const closeDetail = () => {
@@ -536,8 +867,19 @@ export default defineComponent({
     }
 
     const onSearch = (value) => {
-      // 实现搜索功能
-      console.log('search:', value)
+      searchValue.value = value.trim()
+      fetchReports()
+    }
+
+    const handlePageChange = (page) => {
+      currentPage.value = page
+      fetchReports(page)
+    }
+
+    const handlePageSizeChange = (current, size) => {
+      pageSize.value = size
+      currentPage.value = 1
+      fetchReports(1)
     }
 
     onMounted(() => {
@@ -573,7 +915,13 @@ export default defineComponent({
       deleteReport,
       viewReport,
       closeDetail,
-      onSearch
+      onSearch,
+      currentPage,
+      pageSize,
+      total,
+      handlePageChange,
+      handlePageSizeChange,
+      Empty
     }
   }
 })
@@ -632,7 +980,8 @@ export default defineComponent({
 
 .table-container {
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
+  max-height: 70vh;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
@@ -783,6 +1132,18 @@ export default defineComponent({
   height: 36px;
   font-size: 15px;
   border-radius: 6px;
+}
+
+/* 错误提示样式 */
+.error-alert {
+  margin-bottom: 24px;
+}
+
+.no-data-container {
+  padding: 48px 0;
+  text-align: center;
+  background-color: #fafafa;
+  border-radius: 8px;
 }
 
 /* 表单样式 */
