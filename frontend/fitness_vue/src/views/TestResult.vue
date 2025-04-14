@@ -1,3 +1,14 @@
+<!--
+  @description 体测成绩管理组件 - 通用版本
+  @roles 管理员、教师 - 录入、编辑、删除测试成绩
+  @functionality
+    - 展示所有学生的体测成绩卡片列表
+    - 支持展开/收起详细信息和评论
+    - 管理员可以录入、编辑和删除成绩
+    - 学生可以查看成绩详情并发表评论
+    - 支持补考名单管理
+-->
+
 <template>
   <div class="test-result">
     <div class="table-operations" style="margin-bottom: 16px">
@@ -355,7 +366,7 @@ export default defineComponent({
         key: 'total_score'
       },
       {
-        title: '是否补考',
+        title: '是否已补考',
         dataIndex: 'is_makeup',
         key: 'is_makeup',
         render: (text) => text ? '是' : '否'

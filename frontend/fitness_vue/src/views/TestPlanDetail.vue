@@ -1,3 +1,12 @@
+<!--
+  @description 体测计划详情视图组件 - 显示单个体测计划的详细信息
+  @roles 所有用户
+  @features
+    - 展示体测计划的基本信息和详情
+    - 显示参与体测的学生名单
+    - 提供测试项目和要求说明
+    - 管理员可编辑计划信息和状态
+-->
 <template>
   <div class="test-plan-detail">
     <a-page-header
@@ -43,10 +52,10 @@
       </a-descriptions>
 
       <div class="action-buttons" style="margin-top: 24px; display: flex; justify-content: flex-end;">
-        <a-button type="primary" style="margin-right: 8px;">
+        <a-button type="primary" style="margin-right: 8px;" @click="viewTestResults">
           查看测试结果
         </a-button>
-        <a-button>
+        <a-button @click="router.push('/test-plans')">
           返回列表
         </a-button>
       </div>
@@ -69,26 +78,25 @@ const loading = ref(true)
 const fetchTestPlan = async () => {
   loading.value = true
   try {
-    // 在实际应用中，这里应该使用真实的API调用
-    // 在此使用模拟数据
+    // 使用真实的 API 调用
     const response = await axios.get(`/api/test-plans/${testPlanId}`.replace(/\/\//g, '/'))
     testPlan.value = response.data
   } catch (error) {
     console.error('获取测试计划失败:', error)
     message.error('获取测试计划详情失败，请稍后再试')
-    // 使用模拟数据以展示页面
+    // 初始化空对象，而不是使用模拟数据
     testPlan.value = {
       id: testPlanId,
-      title: '2023年秋季体能测试',
-      plan_code: 'FALL2023-PE-001',
-      test_date: '2023-10-15',
-      location: '学校体育馆',
-      participating_classes: ['高一(1)班', '高一(2)班', '高二(1)班'],
-      test_items: ['50米跑', '立定跳远', '仰卧起坐', '800米跑', '坐位体前屈'],
-      description: '本次测试为期末体能测试，请各班按照指定时间到达测试地点，携带学生证和运动装备。',
-      created_by: '体育教师',
-      created_at: '2023-09-01',
-      status: 'active'
+      title: '',
+      plan_code: '',
+      test_date: '',
+      location: '',
+      participating_classes: [],
+      test_items: [],
+      description: '',
+      created_by: '',
+      created_at: '',
+      status: ''
     }
   } finally {
     loading.value = false
@@ -113,6 +121,15 @@ const getStatusText = (status) => {
     cancelled: '已取消'
   }
   return textMap[status] || '未知状态'
+}
+
+// 查看测试结果
+const viewTestResults = () => {
+  // 导航到测试结果报表页面，并传递当前测试计划ID
+  router.push({
+    path: '/test-result-reports',
+    query: { plan_id: testPlanId }
+  })
 }
 
 onMounted(() => {

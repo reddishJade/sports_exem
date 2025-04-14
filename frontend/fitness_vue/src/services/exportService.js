@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
 import html2canvas from 'html2canvas'
+import { marked } from 'marked'
 
 /**
  * 导出数据为Excel文件
@@ -141,4 +142,125 @@ export const printElement = (element) => {
   `)
   
   printDocument.close()
+}
+
+/**
+ * 导出聊天对话为文本文件
+ * @param {Object[]} messages 聊天消息数组
+ * @param {string} title 对话标题
+ */
+export const exportChatAsText = (messages, title) => {
+  let content = `对话: ${title}\n`
+  content += `导出时间: ${new Date().toLocaleString()}\n\n`
+  
+  messages.forEach(msg => {
+    const role = msg.role === 'user' ? '用户' : 'AI助手'
+    content += `${role} (${new Date(msg.timestamp).toLocaleString()}):\n${msg.content}\n\n`
+  })
+  
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  saveAs(blob, `对话-${title}.txt`)
+}
+
+/**
+ * 导出聊天对话为Markdown文件
+ * @param {Object[]} messages 聊天消息数组
+ * @param {string} title 对话标题
+ */
+export const exportChatAsMarkdown = (messages, title) => {
+  let content = `# 对话: ${title}\n\n`
+  content += `*导出时间: ${new Date().toLocaleString()}*\n\n`
+  
+  messages.forEach(msg => {
+    const role = msg.role === 'user' ? '## 用户' : '## AI助手'
+    content += `${role}\n\n${msg.content}\n\n*时间: ${new Date(msg.timestamp).toLocaleString()}*\n\n---\n\n`
+  })
+  
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+  saveAs(blob, `对话-${title}.md`)
+}
+
+/**
+ * 导出聊天对话为HTML文件
+ * @param {Object[]} messages 聊天消息数组
+ * @param {string} title 对话标题
+ */
+export const exportChatAsHTML = (messages, title) => {
+  let content = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>对话: ${title}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .message {
+      margin-bottom: 20px;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    .user {
+      background-color: #f0f0f0;
+    }
+    .assistant {
+      background-color: #e6f7f3;
+    }
+    .role {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .timestamp {
+      font-size: 0.8em;
+      color: #777;
+      margin-top: 5px;
+    }
+    pre {
+      background-color: #f6f8fa;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    code {
+      font-family: monospace;
+      background-color: rgba(0,0,0,0.05);
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <h1>对话: ${title}</h1>
+  <p><em>导出时间: ${new Date().toLocaleString()}</em></p>
+  <div class="chat-content">
+`
+
+  messages.forEach(msg => {
+    const role = msg.role === 'user' ? '用户' : 'AI助手'
+    const cssClass = msg.role === 'user' ? 'user' : 'assistant'
+    const formattedContent = msg.role === 'assistant' ? marked(msg.content) : msg.content.replace(/\n/g, '<br>')
+    
+    content += `    <div class="message ${cssClass}">
+      <div class="role">${role}</div>
+      <div class="content">${formattedContent}</div>
+      <div class="timestamp">${new Date(msg.timestamp).toLocaleString()}</div>
+    </div>
+`
+  })
+
+  content += `  </div>
+</body>
+</html>`
+
+  const blob = new Blob([content], { type: 'text/html;charset=utf-8' })
+  saveAs(blob, `对话-${title}.html`)
 }

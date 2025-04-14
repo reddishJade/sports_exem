@@ -1,8 +1,5 @@
 <!--
   @description 学生视角的测试结果展示组件
-  @author Cascade AI
-  @date 2025-03-27
-  @version 1.0.0
   @roles 学生 - 查看和分析自己的测试成绩
 -->
 <template>
@@ -226,7 +223,7 @@
 <script setup>
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
-import axios from 'axios'
+import api from '@/services/api'
 import * as echarts from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import { 
@@ -297,7 +294,7 @@ const columns = [
     sorter: (a, b) => a.total_score - b.total_score
   },
   {
-    title: '是否补考',
+    title: '是否已补考',
     dataIndex: 'is_makeup',
     key: 'is_makeup',
     width: '15%',
@@ -318,12 +315,7 @@ const columns = [
 const fetchTestResults = async () => {
   loading.value = true
   try {
-    const token = store.state.token
-    const response = await axios.get('/api/test-results/', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const response = await api.get('/test-results/')
     console.log('API返回的测试结果数据:', response.data)
     // 检查每个结果的is_passed字段
     if (response.data && response.data.length > 0) {
@@ -356,12 +348,7 @@ const showDetail = (record) => {
 const fetchComments = async (resultId) => {
   commentsLoading.value = true
   try {
-    const token = store.state.token
-    const response = await axios.get(`/api/comments/?test_result=${resultId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const response = await api.get(`/comments/?test_result=${resultId}`)
     // 确保每个评论对象都有必要的属性，防止渲染错误
     comments.value = response.data.map(comment => ({
       ...comment,
@@ -406,13 +393,9 @@ const submitComment = async () => {
   commentLoading.value = true
   try {
     const token = store.state.token
-    await axios.post(`/api/comments/`, {
+    await api.post(`/comments/`, {
       content: newComment.value.trim(),
       test_result: currentResult.value.id
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
     })
     
     message.success('评论提交成功，等待审核')

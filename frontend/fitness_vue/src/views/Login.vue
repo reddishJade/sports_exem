@@ -1,3 +1,12 @@
+<!--
+  @description 用户登录视图组件 - 提供系统登录界面
+  @roles 未认证用户
+  @features
+    - 用户名密码登录表单
+    - 表单验证和错误提示
+    - 记住登录状态功能
+    - 美观的登录界面设计
+-->
 <template>
   <div class="login-container">
     <div class="login-background">

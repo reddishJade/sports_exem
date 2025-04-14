@@ -1,3 +1,12 @@
+<!--
+  @description 新闻详情视图组件 - 显示单条新闻的完整内容
+  @roles 所有用户
+  @features
+    - 展示新闻标题、来源和发布时间
+    - 完整展示新闻正文内容
+    - 支持图文混排和富文本格式
+    - 提供返回新闻列表功能
+-->
 <template>
   <div class="news-detail-container">
     <div class="news-detail">

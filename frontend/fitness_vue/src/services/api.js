@@ -6,7 +6,7 @@ import router from '@/router';
  * 创建一个axios实例
  */
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',  // 后端API基础URL
+  baseURL: 'http://127.0.0.1:8000/api',  // 使用127.0.0.1而不是localhost，避免某些浏览器的HTTPS自动升级
   timeout: 30000,  // 请求超时时间
   headers: {
     'Content-Type': 'application/json',

@@ -8,6 +8,10 @@ class AIModelService:
     def get_response(self, messages):
         """获取AI响应的抽象方法，子类必须实现"""
         raise NotImplementedError("子类必须实现此方法")
+        
+    def get_streaming_response(self, messages, use_case=None):
+        """获取AI流式响应的抽象方法，子类必须实现"""
+        raise NotImplementedError("子类必须实现此方法")
 
 class DeepSeekService(AIModelService):
     """与DeepSeek API通信的服务类"""
@@ -82,6 +86,66 @@ class DeepSeekService(AIModelService):
         except Exception as e:
             print(f"DeepSeek API未知错误: {str(e)}")
             raise
+        
+    def get_streaming_response(self, messages, use_case="general"):
+        """向DeepSeek API发送流式请求并获取流式响应
+        
+        Args:
+            messages: 消息历史记录
+            use_case: 使用场景，可以是"coding", "data", "general", "translation", "creative"
+            
+        Returns:
+            generator: 生成每个响应块的生成器
+        """
+        if not self.api_key:
+            raise ValueError("DeepSeek API密钥未设置")
+            
+        # 根据使用场景设置温度
+        if use_case in self.use_case_temperatures:
+            self.temperature = self.use_case_temperatures[use_case]
+            
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": self.temperature,
+            "stream": True  # 启用流式传输
+        }
+        
+        try:
+            print(f"向DeepSeek API发送流式请求: URL={self.api_url}, 模型={self.model}, 温度={self.temperature}")
+            response = requests.post(self.api_url, headers=headers, json=data, stream=True)
+            
+            # 检查HTTP错误
+            response.raise_for_status()
+            
+            # 对每个响应行进行处理
+            for line in response.iter_lines():
+                if line:
+                    # 移除data: 前缀并解析JSON
+                    line_text = line.decode('utf-8')
+                    if line_text.startswith('data: '):
+                        line_text = line_text[6:]  # 移除'data: '前缀
+                        
+                    if line_text == '[DONE]':
+                        break
+                        
+                    try:
+                        chunk = json.loads(line_text)
+                        yield chunk
+                    except json.JSONDecodeError as e:
+                        print(f"JSON解析错误: {e}, 原始行: {line_text}")
+        
+        except requests.exceptions.RequestException as e:
+            print(f"DeepSeek API流式请求异常: {str(e)}")
+            raise ValueError(f"DeepSeek API流式请求失败: {str(e)}")
+        except Exception as e:
+            print(f"DeepSeek API流式请求未知错误: {str(e)}")
+            raise
+
 
 class OllamaService(AIModelService):
     """与本地Ollama实例通信的服务类"""
@@ -99,6 +163,82 @@ class OllamaService(AIModelService):
             use_case: 使用场景，在Ollama中不使用，保持API一致性
         """
         # 配置请求参数
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            # 根据不同任务设置合适的温度
+            # 对于编程和推理任务，使用低温度设置
+            "temperature": 0.7  # 默认使用中等温度
+        }
+        
+        try:
+            print(f"向Ollama发送请求: URL={self.api_url}, 模型={self.model}")
+            response = requests.post(self.api_url, json=data)
+            
+            # 打印详细的响应信息
+            print(f"Ollama响应状态码: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"Ollama错误响应: {response.text}")
+                
+            # 检查HTTP错误
+            response.raise_for_status()
+            
+            # 解析JSON响应
+            result = response.json()
+            print(f"Ollama成功响应")
+            return result
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Ollama请求异常: {str(e)}")
+            raise ValueError(f"Ollama请求失败: {str(e)}")
+        except ValueError as e:
+            print(f"Ollama JSON解析错误: {str(e)}")
+            raise ValueError(f"无法解析Ollama响应: {str(e)}")
+        except Exception as e:
+            print(f"Ollama未知错误: {str(e)}")
+            raise
+            
+    def get_streaming_response(self, messages, use_case=None):
+        """向Ollama发送流式请求并获取流式响应
+        
+        Args:
+            messages: 消息历史记录
+            use_case: 使用场景，在Ollama中不使用，保持API一致性
+            
+        Returns:
+            generator: 生成每个响应块的生成器
+        """
+        # 配置请求参数为流式模式
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "stream": True  # 启用流式处理
+        }
+        
+        try:
+            print(f"向Ollama发送流式请求: URL={self.api_url}, 模型={self.model}")
+            response = requests.post(self.api_url, json=data, stream=True)
+            
+            # 检查HTTP错误
+            response.raise_for_status()
+            
+            # 对每个响应行进行处理
+            for line in response.iter_lines():
+                if line:
+                    try:
+                        chunk = json.loads(line.decode('utf-8'))
+                        yield chunk
+                    except json.JSONDecodeError as e:
+                        print(f"JSON解析错误: {e}, 原始行: {line.decode('utf-8')}")
+                        
+        except requests.exceptions.RequestException as e:
+            print(f"Ollama API流式请求异常: {str(e)}")
+            raise ValueError(f"Ollama API流式请求失败: {str(e)}")
+        except Exception as e:
+            print(f"Ollama API流式请求未知错误: {str(e)}")
+            raise
         data = {
             "model": self.model,
             "messages": messages,

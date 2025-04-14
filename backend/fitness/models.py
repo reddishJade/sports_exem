@@ -94,6 +94,8 @@ class TestPlan(models.Model):
 class TestResult(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, verbose_name='学生')
     test_plan = models.ForeignKey(TestPlan, on_delete=models.CASCADE, verbose_name='测试计划')
+    height = models.FloatField('身高(cm)', default=0)  # 添加身高字段
+    weight = models.FloatField('体重(kg)', default=0)  # 添加体重字段
     bmi = models.FloatField('BMI指数')
     vital_capacity = models.IntegerField('肺活量(ml)')
     run_50m = models.FloatField('50米跑(秒)')
@@ -115,37 +117,31 @@ class TestResult(models.Model):
     @property
     def is_passed(self):
         """判断是否及格"""
-        # 获取对应性别的体测标准
-        standard = PhysicalStandard.objects.get(gender=self.student.gender)
-        
-        # 检查每个项目是否达到及格标准
-        vital_capacity_passed = self.vital_capacity >= standard.vital_capacity_pass
-        run_50m_passed = self.run_50m <= standard.run_50m_pass  # 跑步项目时间越短越好
-        sit_and_reach_passed = self.sit_and_reach >= standard.sit_and_reach_pass
-        standing_jump_passed = self.standing_jump >= standard.standing_jump_pass
-        run_800m_passed = self.run_800m <= standard.run_800m_pass  # 跑步项目时间越短越好
-        
-        passed_items = [
-            vital_capacity_passed,
-            run_50m_passed,
-            sit_and_reach_passed,
-            standing_jump_passed,
-            run_800m_passed
-        ]
-        
-        # 打印调试信息
-        print(f"TestResult ID: {self.id}, Student: {self.student.name}, Total Score: {self.total_score}")
-        print(f"  肺活量通过: {vital_capacity_passed} ({self.vital_capacity} >= {standard.vital_capacity_pass})")
-        print(f"  50米跑通过: {run_50m_passed} ({self.run_50m} <= {standard.run_50m_pass})")
-        print(f"  坐位体前屈通过: {sit_and_reach_passed} ({self.sit_and_reach} >= {standard.sit_and_reach_pass})")
-        print(f"  立定跳远通过: {standing_jump_passed} ({self.standing_jump} >= {standard.standing_jump_pass})")
-        print(f"  800米跑通过: {run_800m_passed} ({self.run_800m} <= {standard.run_800m_pass})")
-        print(f"  全部项目通过: {all(passed_items)}")
-        
-        # 总分及格线为60分，且所有单项均须达标
-        passed = self.total_score >= 60 and all(passed_items)
-        print(f"  最终是否通过: {passed} (总分>=60 AND 所有项目通过)")
-        return passed
+        try:
+            # 获取对应性别的体测标准
+            standard = PhysicalStandard.objects.get(gender=self.student.gender)
+            
+            # 检查每个项目是否达到及格标准
+            vital_capacity_passed = self.vital_capacity >= standard.vital_capacity_pass
+            run_50m_passed = self.run_50m <= standard.run_50m_pass  # 跑步项目时间越短越好
+            sit_and_reach_passed = self.sit_and_reach >= standard.sit_and_reach_pass
+            standing_jump_passed = self.standing_jump >= standard.standing_jump_pass
+            run_800m_passed = self.run_800m <= standard.run_800m_pass  # 跑步项目时间越短越好
+            
+            passed_items = [
+                vital_capacity_passed,
+                run_50m_passed,
+                sit_and_reach_passed,
+                standing_jump_passed,
+                run_800m_passed
+            ]
+            
+            # 总分及格线为60分，且所有单项均须达标
+            passed = self.total_score >= 60 and all(passed_items)
+            return passed
+        except PhysicalStandard.DoesNotExist:
+            # 找不到对应性别的标准时，默认返回不及格
+            return False
 
 class Comment(models.Model):
     test_result = models.ForeignKey(TestResult, on_delete=models.CASCADE, verbose_name='测试成绩')

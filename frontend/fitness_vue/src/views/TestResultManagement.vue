@@ -1,8 +1,5 @@
 <!--
   @description 管理员视角的测试结果管理组件
-  @author Cascade AI
-  @date 2025-03-27
-  @version 1.0.0
   @roles 管理员 - 录入、编辑、删除测试成绩
 -->
 <template>

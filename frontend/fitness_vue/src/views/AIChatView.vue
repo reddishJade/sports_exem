@@ -1,3 +1,12 @@
+<!--
+  @description AI聊天视图组件 - 提供与AI助手的对话界面
+  @roles 所有已认证用户
+  @features
+    - 支持多轮对话历史记录
+    - 实时消息发送和接收
+    - 对话列表管理
+    - 消息排版和格式化
+-->
 <template>
   <div class="chat-container">
     <!-- 对话列表侧边栏 -->
@@ -11,13 +20,50 @@
       <!-- 当前聊天顶部 -->
       <div class="chat-header">
         <h2>{{ currentTitle }}</h2>
-        <div v-if="isSendingMessage" class="status-indicator">
-          <i class="fas fa-spinner fa-spin"></i> AI正在响应...
+        <div class="header-actions">
+          <!-- 操作按钮组 - 仅在有对话时显示 -->
+          <div v-if="currentConversation" class="action-buttons">
+            <!-- 导出按钮 - 仅在有消息时显示 -->
+            <div v-if="messages && messages.length > 0" class="export-dropdown">
+              <button class="action-btn export-btn" @click="toggleExportMenu" title="导出对话">
+                <i class="fas fa-download"></i>
+              </button>
+              <div v-if="showExportMenu" class="export-menu">
+                <div class="export-menu-item" @click="exportChat('text')">
+                  <i class="fas fa-file-alt"></i> 导出为文本 (.txt)
+                </div>
+                <div class="export-menu-item" @click="exportChat('markdown')">
+                  <i class="fas fa-file-code"></i> 导出为Markdown (.md)
+                </div>
+                <div class="export-menu-item" @click="exportChat('html')">
+                  <i class="fas fa-file-code"></i> 导出为HTML (.html)
+                </div>
+              </div>
+            </div>
+            
+            <!-- 清空对话历史按钮 - 仅在有消息时显示 -->
+            <button 
+              v-if="messages && messages.length > 0" 
+              class="action-btn clear-btn" 
+              @click="confirmClearMessages"
+              title="清空对话历史">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </div>
+          <!-- 状态指示器 -->
+          <div v-if="isSendingMessage" class="status-indicator">
+            <i class="fas fa-spinner fa-spin"></i> AI正在响应...
+          </div>
         </div>
       </div>
       
       <!-- 消息列表区域 -->
-      <div class="chat-messages" ref="messagesContainer">
+      <div class="chat-messages" ref="messagesContainer" @scroll="handleScroll">
+        <!-- 加载更多消息提示 -->
+        <div v-if="isLoadingMore" class="loading-more">
+          <i class="fas fa-spinner fa-spin"></i> 加载更多消息...
+        </div>
+        
         <div v-if="!currentConversation" class="welcome-container">
           <div class="welcome-content">
             <h3>欢迎使用AI助手</h3>
@@ -46,7 +92,7 @@
         </div>
         
         <template v-else>
-          <div v-if="messages.length === 0" class="empty-chat">
+          <div v-if="messages && messages.length === 0" class="empty-chat">
             <p>这是一个新对话，请开始发送消息。</p>
             <!-- 主题提示 -->
             <div class="prompt-suggestions">
@@ -63,15 +109,18 @@
             </div>
           </div>
           <AIChatMessage 
-            v-for="message in messages" 
+            v-for="message in (messages || [])" 
             :key="message.id" 
             :message="message"
+            :conversationId="currentConversationId"
+            @message-deleted="handleMessageDeleted"
           />
           <!-- 添加打字指示器，当AI正在回复时显示 -->
           <AIChatMessage
             v-if="isSendingMessage"
             :message="{role: 'assistant', content: '', timestamp: new Date().toISOString()}"
             :isTyping="true"
+            :conversationId="currentConversationId"
           />
         </template>
       </div>
@@ -85,6 +134,19 @@
       />
     </div>
   </div>
+  
+  <!-- 清空对话历史确认模态框 -->
+  <div v-if="showClearMessagesModal" class="modal-overlay">
+    <div class="modal-content">
+      <h4>确认清空历史</h4>
+      <p>您确定要清空当前对话的所有历史消息吗？</p>
+      <p>此操作不可撤销。</p>
+      <div class="modal-actions">
+        <button @click="cancelClearMessages" class="cancel-btn">取消</button>
+        <button @click="clearMessages" class="confirm-btn">清空</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -94,6 +156,7 @@ import { useRoute, useRouter } from 'vue-router';
 import AIConversationList from '@/components/AIConversationList.vue';
 import AIChatMessage from '@/components/AIChatMessage.vue';
 import AIChatInput from '@/components/AIChatInput.vue';
+import { exportChatAsText, exportChatAsMarkdown, exportChatAsHTML } from '@/services/exportService';
 
 export default {
   name: 'AIChatView',
@@ -111,6 +174,16 @@ export default {
     const messagesContainer = ref(null);
     const chatInput = ref(null);
     
+    // 滚动相关状态
+    const scrollThreshold = 100; // px
+    const isAtScrollTop = ref(false);
+    const initialScrollPosition = ref(null);
+    const scrollPositionBeforeLoad = ref(null);
+    
+    // 导出和清空功能相关状态
+    const showExportMenu = ref(false);
+    const showClearMessagesModal = ref(false);
+    
     // 获取当前对话ID
     const currentConversationId = computed(() => {
       return route.params.id ? parseInt(route.params.id) : null;
@@ -126,16 +199,20 @@ export default {
       return currentConversation.value?.title || 'AI助手';
     });
     
-    // 获取消息列表
-    const messages = computed(() => {
-      return store.getters['aiChat/messages'];
-    });
+    // 获取当前对话的messages
+    const messages = computed(() => store.getters['aiChat/messages']);
     
     // 加载状态
     const isLoading = computed(() => store.getters['aiChat/isLoading']);
     
-    // 发送消息状态
+    // 是否正在发送消息
     const isSendingMessage = computed(() => store.getters['aiChat/isSendingMessage']);
+    
+    // 是否正在加载更多消息
+    const isLoadingMore = computed(() => store.getters['aiChat/isLoadingMore']);
+    
+    // 是否还有更多消息可加载
+    const hasMoreMessages = computed(() => store.getters['aiChat/hasMoreMessages']);
     
     // 获取错误信息
     const error = computed(() => store.getters['aiChat/error']);
@@ -310,11 +387,134 @@ export default {
     
     // 滚动到底部
     const scrollToBottom = () => {
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      nextTick(() => {
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+        }
+      });
+    };
+    
+    // 处理滚动事件
+    const handleScroll = () => {
+      if (!messagesContainer.value || !currentConversation.value) return;
+      
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainer.value;
+      
+      // 检测是否已经滚动到顶部
+      if (scrollTop < 200 && hasMoreMessages.value && !isLoadingMore.value) {
+        // 记录当前滚动位置
+        scrollPositionBeforeLoad.value = {
+          scrollTop,
+          scrollHeight,
+          clientHeight
+        };
+        
+        // 加载更多历史消息
+        loadMoreMessages();
       }
     };
     
+    // 加载更多消息
+    const loadMoreMessages = async () => {
+      if (!currentConversation.value || !hasMoreMessages.value || isLoadingMore.value) return;
+      
+      try {
+        // 加载更多消息
+        await store.dispatch('aiChat/loadMoreMessages', currentConversation.value.id);
+        
+        // 保持滚动位置，防止加载更多消息后滚动位置跳变
+        nextTick(() => {
+          if (messagesContainer.value && scrollPositionBeforeLoad.value) {
+            // 计算相对滚动位置
+            const { scrollHeight: oldScrollHeight } = scrollPositionBeforeLoad.value;
+            const newScrollHeight = messagesContainer.value.scrollHeight;
+            const heightDiff = newScrollHeight - oldScrollHeight;
+            
+            // 调整滚动位置保持相对位置不变
+            messagesContainer.value.scrollTop = heightDiff + 10; // 给用户一个小反馈，滚动位置稍微下移
+          }
+        });
+      } catch (error) {
+        console.error('加载更多消息失败:', error);
+      }
+    };
+    // 切换导出菜单显示状态
+    const toggleExportMenu = () => {
+      showExportMenu.value = !showExportMenu.value;
+      
+      // 如果打开菜单，添加点击外部关闭的事件
+      if (showExportMenu.value) {
+        setTimeout(() => {
+          document.addEventListener('click', closeExportMenuOnClickOutside);
+        }, 100);
+      }
+    };
+    
+    // 点击外部关闭导出菜单
+    const closeExportMenuOnClickOutside = (event) => {
+      const exportDropdown = document.querySelector('.export-dropdown');
+      if (exportDropdown && !exportDropdown.contains(event.target)) {
+        showExportMenu.value = false;
+        document.removeEventListener('click', closeExportMenuOnClickOutside);
+      }
+    };
+    
+    // 导出对话
+    const exportChat = (format) => {
+      if (!currentConversation.value || messages.value.length === 0) return;
+      
+      const title = currentConversation.value.title || '未命名对话';
+      
+      // 根据选择的格式导出
+      switch (format) {
+        case 'text':
+          exportChatAsText(messages.value, title);
+          break;
+        case 'markdown':
+          exportChatAsMarkdown(messages.value, title);
+          break;
+        case 'html':
+          exportChatAsHTML(messages.value, title);
+          break;
+      }
+      
+      // 关闭导出菜单
+      showExportMenu.value = false;
+      document.removeEventListener('click', closeExportMenuOnClickOutside);
+    };
+    
+    // 确认清空对话历史
+    const confirmClearMessages = () => {
+      showClearMessagesModal.value = true;
+    };
+    
+    // 取消清空对话历史
+    const cancelClearMessages = () => {
+      showClearMessagesModal.value = false;
+    };
+    
+    // 清空对话历史
+    const clearMessages = async () => {
+      if (!currentConversation.value) return;
+      
+      try {
+        await store.dispatch('aiChat/clearConversationMessages', currentConversation.value.id);
+        showClearMessagesModal.value = false;
+      } catch (error) {
+        console.error('清空对话历史失败:', error);
+      }
+    };
+    
+    // 处理消息删除事件
+    const handleMessageDeleted = (messageId) => {
+      // 消息已在 AIChatMessage 组件中调用 Vuex 删除，这里只需要处理UI相关逻辑
+      // 如果需要，可以在这里添加提示消息或其他反馈
+      nextTick(() => {
+        // UI更新后的操作，比如滚动调整
+        scrollToBottom();
+      });
+    };
+
     return {
       currentConversationId,
       currentConversation,
@@ -322,16 +522,29 @@ export default {
       messages,
       isLoading,
       isSendingMessage,
-      error,
+      isLoadingMore,
+      hasMoreMessages,
       messagesContainer,
       chatInput,
+      suggestedPrompts,
+      promptTemplates,
+      showExportMenu,
+      showClearMessagesModal,
+      loadConversation,
       selectConversation,
       createNewConversation,
-      sendMessage,
-      promptTemplates,
-      suggestedPrompts,
       startTemplateConversation,
-      applySuggestion
+      applySuggestion,
+      sendMessage,
+      scrollToBottom,
+      handleScroll,
+      loadMoreMessages,
+      toggleExportMenu,
+      exportChat,
+      clearMessages,
+      confirmClearMessages,
+      cancelClearMessages,
+      handleMessageDeleted
     };
   }
 };
@@ -370,6 +583,86 @@ export default {
   font-size: 1.3rem;
   color: #2c3e50;
   font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.export-dropdown {
+  position: relative;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.export-btn {
+  color: #10a37f;
+}
+
+.export-btn:hover {
+  background-color: rgba(16, 163, 127, 0.1);
+  transform: translateY(-2px);
+}
+
+.clear-btn {
+  color: #e74c3c;
+}
+
+.clear-btn:hover {
+  background-color: rgba(231, 76, 60, 0.1);
+  transform: translateY(-2px);
+}
+
+.export-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 220px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  margin-top: 8px;
+  overflow: hidden;
+  animation: menuFadeIn 0.2s ease-in-out;
+}
+
+@keyframes menuFadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.export-menu-item {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.9rem;
+}
+
+.export-menu-item i {
+  color: #10a37f;
+}
+
+.export-menu-item:hover {
+  background-color: #f0fdf9;
 }
 
 .status-indicator {

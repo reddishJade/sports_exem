@@ -28,18 +28,26 @@
             <span class="conversation-title">{{ conversation.title }}</span>
             <small class="timestamp">{{ formatDate(conversation.updated_at) }}</small>
           </div>
-          <button 
-            @click.stop="confirmDelete(conversation)" 
-            class="delete-btn"
-            title="删除对话">
-            <i class="fas fa-trash"></i>
-          </button>
+          <div class="conversation-actions">
+            <button 
+              @click.stop="editTitle(conversation)" 
+              class="edit-btn"
+              title="编辑标题">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button 
+              @click.stop="confirmDelete(conversation)" 
+              class="delete-btn"
+              title="删除对话">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
         </div>
       </li>
     </ul>
     
     <!-- 确认删除对话的模态框 -->
-    <div v-if="showDeleteModal" class="delete-modal">
+    <div v-if="showDeleteModal" class="modal-overlay">
       <div class="modal-content">
         <h4>确认删除</h4>
         <p>您确定要删除对话 "{{ conversationToDelete?.title }}" 吗？</p>
@@ -47,6 +55,27 @@
         <div class="modal-actions">
           <button @click="cancelDelete" class="cancel-btn">取消</button>
           <button @click="deleteSelectedConversation" class="confirm-btn">删除</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 编辑标题的模态框 -->
+    <div v-if="showEditModal" class="modal-overlay">
+      <div class="modal-content">
+        <h4>编辑对话标题</h4>
+        <input 
+          v-model="editTitleText" 
+          class="title-input" 
+          placeholder="输入对话标题" 
+          @keydown.enter="saveTitle"
+        />
+        <div class="modal-actions">
+          <button @click="cancelEdit" class="cancel-btn">取消</button>
+          <button 
+            @click="saveTitle" 
+            class="save-btn" 
+            :disabled="!editTitleText.trim()"
+          >保存</button>
         </div>
       </div>
     </div>
@@ -82,6 +111,11 @@ export default {
     // 删除相关状态
     const showDeleteModal = ref(false);
     const conversationToDelete = ref(null);
+    
+    // 编辑标题相关状态
+    const showEditModal = ref(false);
+    const conversationToEdit = ref(null);
+    const editTitleText = ref('');
     
     // 选择对话
     const selectConversation = (conversation) => {
@@ -151,17 +185,55 @@ export default {
       }
     };
     
+    // 编辑对话标题
+    const editTitle = (conversation) => {
+      conversationToEdit.value = conversation;
+      editTitleText.value = conversation.title;
+      showEditModal.value = true;
+    };
+    
+    // 取消编辑
+    const cancelEdit = () => {
+      showEditModal.value = false;
+      conversationToEdit.value = null;
+      editTitleText.value = '';
+    };
+    
+    // 保存标题
+    const saveTitle = async () => {
+      if (!editTitleText.value.trim()) return;
+      
+      try {
+        await store.dispatch('aiChat/updateConversation', {
+          id: conversationToEdit.value.id,
+          title: editTitleText.value.trim()
+        });
+        
+        showEditModal.value = false;
+        conversationToEdit.value = null;
+        editTitleText.value = '';
+      } catch (error) {
+        console.error('更新对话标题失败:', error);
+      }
+    };
+    
     return {
       conversations,
       loading,
       showDeleteModal,
       conversationToDelete,
+      showEditModal,
+      conversationToEdit,
+      editTitleText,
       selectConversation,
       createNewConversation,
       formatDate,
       confirmDelete,
       cancelDelete,
-      deleteSelectedConversation
+      deleteSelectedConversation,
+      editTitle,
+      cancelEdit,
+      saveTitle
     };
   }
 };
@@ -293,10 +365,14 @@ export default {
   margin-top: 4px;
 }
 
-.delete-btn {
+.conversation-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.edit-btn, .delete-btn {
   background: transparent;
   border: none;
-  color: #888;
   cursor: pointer;
   padding: 5px;
   border-radius: 50%;
@@ -305,13 +381,27 @@ export default {
   font-size: 0.9rem;
 }
 
+.edit-btn {
+  color: #10a37f;
+}
+
+.edit-btn:hover {
+  color: #0d8c6c;
+  background-color: rgba(16, 163, 127, 0.1);
+  opacity: 1;
+}
+
+.delete-btn {
+  color: #888;
+}
+
 .delete-btn:hover {
   color: #e74c3c;
   background-color: rgba(231, 76, 60, 0.1);
   opacity: 1;
 }
 
-.delete-modal {
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -377,6 +467,36 @@ export default {
 
 .confirm-btn:hover {
   background-color: #c0392b;
+}
+
+.save-btn {
+  background-color: #10a37f;
+  color: white;
+}
+
+.save-btn:hover:not(:disabled) {
+  background-color: #0d8c6c;
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.title-input {
+  width: 100%;
+  padding: 0.8rem;
+  margin: 1rem 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.title-input:focus {
+  border-color: #10a37f;
+  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2);
 }
 
 @media (max-width: 768px) {

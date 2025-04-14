@@ -1,3 +1,12 @@
+<!--
+  @description 补考通知视图组件 - 管理和展示体测补考相关通知
+  @roles 学生、家长、管理员
+  @features
+    - 展示补考通知列表
+    - 支持通知筛选和分类
+    - 提供通知详情查看
+    - 标记通知已读状态
+-->
 <template>
   <div class="notifications-container">
     <a-page-header

@@ -1,8 +1,5 @@
 <!--
   @description 带有登录和注册功能的组合组件
-  @author Cascade AI
-  @date 2025-03-27
-  @version 1.0.0
   @roles 所有用户 - 主要登录入口
 -->
 <template>

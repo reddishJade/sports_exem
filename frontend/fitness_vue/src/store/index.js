@@ -1,5 +1,5 @@
 import { createStore } from 'vuex'
-import axios from 'axios'
+import api from '@/services/api'
 import aiChat from './modules/aiChat'
 
 const store = createStore({
@@ -44,11 +44,10 @@ const store = createStore({
     async login({ commit }, credentials) {
       commit('setLoading', true)
       try {
-        const response = await axios.post('http://localhost:8000/api/auth/login/', credentials)
+        const response = await api.post('/auth/login/', credentials)
         const { access, refresh, user } = response.data
         commit('setToken', { access, refresh })
         commit('setUser', user)
-        axios.defaults.headers.common['Authorization'] = `Bearer ${access}`
         return response.data
       } finally {
         commit('setLoading', false)
@@ -58,11 +57,10 @@ const store = createStore({
     async register({ commit }, userData) {
       commit('setLoading', true)
       try {
-        const response = await axios.post('http://localhost:8000/api/auth/register/', userData)
+        const response = await api.post('/auth/register/', userData)
         const { access, refresh, user } = response.data
         commit('setToken', { access, refresh })
         commit('setUser', user)
-        axios.defaults.headers.common['Authorization'] = `Bearer ${access}`
         return response.data
       } finally {
         commit('setLoading', false)
@@ -71,7 +69,7 @@ const store = createStore({
     
     async refreshToken({ commit, state }) {
       try {
-        const response = await axios.post('http://localhost:8000/api/auth/refresh/', {
+        const response = await api.post('/auth/refresh/', {
           refresh: state.refreshToken
         })
         const { access } = response.data
@@ -79,7 +77,6 @@ const store = createStore({
           access,
           refresh: state.refreshToken 
         })
-        axios.defaults.headers.common['Authorization'] = `Bearer ${access}`
         return response.data
       } catch (error) {
         commit('clearAuth')
@@ -87,9 +84,58 @@ const store = createStore({
       }
     },
     
+    async fetchCurrentUser({ commit, state }) {
+      if (!state.token || !state.user || !state.user.id) return null
+      
+      commit('setLoading', true)
+      try {
+        // 获取当前用户详细信息，包括学生资料
+        const userId = state.user.id
+        const response = await api.get(`/users/${userId}/`)
+        
+        // 如果是学生，尝试获取学生资料
+        let userData = response.data
+        if (userData.user_type === 'student') {
+          try {
+            // 尝试获取学生资料
+            const studentResponse = await api.get('/students/', {
+              params: { user: userId }
+            })
+            
+            if (studentResponse.data && studentResponse.data.length > 0) {
+              // 将学生数据加入到用户数据中
+              userData.student_profile = studentResponse.data[0]
+            }
+          } catch (studentError) {
+            console.warn('获取学生数据失败:', studentError)
+          }
+        }
+        
+        // 更新用户数据
+        commit('setUser', userData)
+        return userData
+      } catch (error) {
+        console.error('获取用户信息失败:', error)
+        if (error.response && error.response.status === 401) {
+          // 如果是认证问题，尝试刷新令牌
+          try {
+            await this.dispatch('refreshToken')
+            return this.dispatch('fetchCurrentUser')  // 递归调用自身
+          } catch (refreshError) {
+            // 如果刷新失败，清除认证状态
+            commit('clearAuth')
+            throw refreshError
+          }
+        }
+        throw error
+      } finally {
+        commit('setLoading', false)
+      }
+    },
+    
     logout({ commit }) {
       commit('clearAuth')
-      delete axios.defaults.headers.common['Authorization']
+      // 不需要手动删除Authorization头，因为每个请求都会从当前store状态获取token
     }
   },
   

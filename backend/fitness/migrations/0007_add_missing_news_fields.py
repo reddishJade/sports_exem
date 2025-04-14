@@ -10,18 +10,15 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 尝试添加source_name列
+        # 添加source_name列
         migrations.RunSQL(
             sql="""
-            SET @stmt = (SELECT IF(
-               EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
-               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sports_news' AND COLUMN_NAME = 'source_name'),
-               'SELECT 1',
-               'ALTER TABLE sports_news ADD COLUMN source_name VARCHAR(100) NULL'
-            ));
-            PREPARE stmt FROM @stmt;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
+            -- SQLite doesn't support IF NOT EXISTS for columns, so we need to check if column exists
+            -- and add it only if it doesn't
+            SELECT CASE 
+                WHEN NOT EXISTS(SELECT 1 FROM pragma_table_info('sports_news') WHERE name='source_name') 
+                THEN 'ALTER TABLE sports_news ADD COLUMN source_name VARCHAR(100) NULL;'
+            END;
             """,
             reverse_sql="ALTER TABLE sports_news DROP COLUMN source_name;",
             elidable=True  # 忽略错误
@@ -30,15 +27,10 @@ class Migration(migrations.Migration):
         # 添加source_url列
         migrations.RunSQL(
             sql="""
-            SET @stmt = (SELECT IF(
-               EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
-               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sports_news' AND COLUMN_NAME = 'source_url'),
-               'SELECT 1',
-               'ALTER TABLE sports_news ADD COLUMN source_url VARCHAR(255) NULL'
-            ));
-            PREPARE stmt FROM @stmt;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
+            SELECT CASE 
+                WHEN NOT EXISTS(SELECT 1 FROM pragma_table_info('sports_news') WHERE name='source_url') 
+                THEN 'ALTER TABLE sports_news ADD COLUMN source_url VARCHAR(255) NULL;'
+            END;
             """,
             reverse_sql="ALTER TABLE sports_news DROP COLUMN source_url;",
             elidable=True
@@ -47,44 +39,22 @@ class Migration(migrations.Migration):
         # 添加pub_date列
         migrations.RunSQL(
             sql="""
-            SET @stmt = (SELECT IF(
-               EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
-               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sports_news' AND COLUMN_NAME = 'pub_date'),
-               'SELECT 1',
-               'ALTER TABLE sports_news ADD COLUMN pub_date DATETIME NULL'
-            ));
-            PREPARE stmt FROM @stmt;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
+            SELECT CASE 
+                WHEN NOT EXISTS(SELECT 1 FROM pragma_table_info('sports_news') WHERE name='pub_date') 
+                THEN 'ALTER TABLE sports_news ADD COLUMN pub_date DATETIME NULL;'
+            END;
             """,
             reverse_sql="ALTER TABLE sports_news DROP COLUMN pub_date;",
             elidable=True
         ),
         
-        # 尝试确保news_comment表有news_id列和外键约束
+        # 添加news_id列到news_comment表
         migrations.RunSQL(
             sql="""
-            -- 检查并添加news_id列
-            SET @stmt = (SELECT IF(
-               EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
-               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'news_comment' AND COLUMN_NAME = 'news_id'),
-               'SELECT 1',
-               'ALTER TABLE news_comment ADD COLUMN news_id INTEGER NULL'
-            ));
-            PREPARE stmt FROM @stmt;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
-            
-            -- 尝试添加外键约束
-            SET @stmt = (SELECT IF(
-               EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
-               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'news_comment' AND CONSTRAINT_NAME = 'fk_news_comment_news'),
-               'SELECT 1',
-               'ALTER TABLE news_comment ADD CONSTRAINT fk_news_comment_news FOREIGN KEY (news_id) REFERENCES sports_news(id)'
-            ));
-            PREPARE stmt FROM @stmt;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
+            SELECT CASE 
+                WHEN NOT EXISTS(SELECT 1 FROM pragma_table_info('news_comment') WHERE name='news_id') 
+                THEN 'ALTER TABLE news_comment ADD COLUMN news_id INTEGER NULL REFERENCES sports_news(id);'
+            END;
             """,
             reverse_sql="",  # 不需要反向操作
             elidable=True  # 忽略错误
@@ -93,26 +63,10 @@ class Migration(migrations.Migration):
         # 添加student_id列
         migrations.RunSQL(
             sql="""
-            SET @stmt = (SELECT IF(
-               EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
-               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'news_comment' AND COLUMN_NAME = 'student_id'),
-               'SELECT 1',
-               'ALTER TABLE news_comment ADD COLUMN student_id BIGINT NULL'
-            ));
-            PREPARE stmt FROM @stmt;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
-            
-            -- 尝试添加学生外键约束
-            SET @stmt = (SELECT IF(
-               EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
-               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'news_comment' AND CONSTRAINT_NAME = 'fk_news_comment_student'),
-               'SELECT 1',
-               'ALTER TABLE news_comment ADD CONSTRAINT fk_news_comment_student FOREIGN KEY (student_id) REFERENCES student(id)'
-            ));
-            PREPARE stmt FROM @stmt;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
+            SELECT CASE 
+                WHEN NOT EXISTS(SELECT 1 FROM pragma_table_info('news_comment') WHERE name='student_id') 
+                THEN 'ALTER TABLE news_comment ADD COLUMN student_id BIGINT NULL REFERENCES student(id);'
+            END;
             """,
             reverse_sql="",
             elidable=True
