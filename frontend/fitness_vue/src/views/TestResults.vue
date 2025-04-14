@@ -1,17 +1,29 @@
-&lt;template>
-  &lt;div class="test-results">
-    &lt;a-card title="体测成绩查询" :bordered="false" class="results-card">
-      &lt;template #title>
-        &lt;div class="card-title">
-          &lt;file-text-outlined />
-          &lt;span>体测成绩查询&lt;/span>
-        &lt;/div>
-      &lt;/template>
+<!--
+  @description 学生体测成绩查询组件
+  @roles 学生、家长 - 查看个人体测成绩
+  @functionality
+    - 以表格形式展示学生的体测成绩列表
+    - 支持查看成绩详情，包括各项测试指标
+    - 提供成绩趋势图表，展示学生体测成绩变化
+    - 标记未通过的成绩，提示需要补考
+    - 显示是否已补考状态
+    - 支持查看相关健康报告
+-->
+
+<template>
+  <div class="test-results">
+    <a-card title="体测成绩查询" :bordered="false" class="results-card">
+      <template #title>
+        <div class="card-title">
+          <file-text-outlined />
+          <span>体测成绩查询</span>
+        </div>
+      </template>
       
-      &lt;a-tabs v-model:activeKey="activeTab" class="results-tabs">
-        &lt;a-tab-pane key="list" tab="成绩列表">
-          &lt;div class="table-wrapper">
-            &lt;a-table 
+      <a-tabs v-model:activeKey="activeTab" class="results-tabs">
+        <a-tab-pane key="list" tab="成绩列表">
+          <div class="table-wrapper">
+            <a-table 
               :columns="columns" 
               :data-source="testResults" 
               :loading="loading"
@@ -19,184 +31,184 @@
               :row-class-name="getRowClassName"
               class="results-table"
             >
-              &lt;template #bodyCell="{ column, record }">
-                &lt;template v-if="column.key === 'action'">
-                  &lt;a-space>
-                    &lt;a @click="showDetail(record)" class="action-link view-link">
-                      &lt;eye-outlined /> 查看详情
-                    &lt;/a>
-                    &lt;a 
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'action'">
+                  <a-space>
+                    <a @click="showDetail(record)" class="action-link view-link">
+                      <eye-outlined /> 查看详情
+                    </a>
+                    <a 
                       v-if="!record.is_makeup && record.total_score < 60" 
                       class="action-link makeup-link"
                     >
-                      &lt;warning-outlined /> 需要补考
-                    &lt;/a>
-                  &lt;/a-space>
-                &lt;/template>
-                &lt;template v-else-if="column.key === 'total_score'">
-                  &lt;a-tag :color="getScoreColor(record.total_score)" class="score-tag">
+                      <warning-outlined /> 需要补考
+                    </a>
+                  </a-space>
+                </template>
+                <template v-else-if="column.key === 'total_score'">
+                  <a-tag :color="getScoreColor(record.total_score)" class="score-tag">
                     {{ record.total_score }}
-                    &lt;span class="score-text">{{ getScoreText(record.total_score) }}&lt;/span>
-                  &lt;/a-tag>
-                &lt;/template>
-                &lt;template v-else-if="column.key === 'is_makeup'">
-                  &lt;a-tag :color="record.is_makeup ? 'orange' : 'green'" class="tag-cell">
+                    <span class="score-text">{{ getScoreText(record.total_score) }}</span>
+                  </a-tag>
+                </template>
+                <template v-else-if="column.key === 'is_makeup'">
+                  <a-tag :color="record.is_makeup ? 'orange' : 'green'" class="tag-cell">
                     {{ record.is_makeup ? '是' : '否' }}
-                  &lt;/a-tag>
-                &lt;/template>
-                &lt;template v-else-if="column.key === 'test_plan'">
-                  &lt;div>{{ column.customRender({ text: record.test_plan, record }) }}&lt;/div>
-                &lt;/template>
-              &lt;/template>
-            &lt;/a-table>
-          &lt;/div>
-        &lt;/a-tab-pane>
+                  </a-tag>
+                </template>
+                <template v-else-if="column.key === 'test_plan'">
+                  <div>{{ column.customRender({ text: record.test_plan, record }) }}</div>
+                </template>
+              </template>
+            </a-table>
+          </div>
+        </a-tab-pane>
         
-        &lt;a-tab-pane key="chart" tab="成绩趋势">
-          &lt;div class="chart-container">
-            &lt;div ref="chartRef" class="chart-content">&lt;/div>
-          &lt;/div>
-        &lt;/a-tab-pane>
-      &lt;/a-tabs>
-    &lt;/a-card>
+        <a-tab-pane key="chart" tab="成绩趋势">
+          <div class="chart-container">
+            <div ref="chartRef" class="chart-content"></div>
+          </div>
+        </a-tab-pane>
+      </a-tabs>
+    </a-card>
 
-    &lt;a-modal
+    <a-modal
       v-model:open="detailVisible"
       title="成绩详情"
       width="800px"
       @ok="detailVisible = false"
       class="detail-modal"
     >
-      &lt;template #title>
-        &lt;div class="modal-title">
-          &lt;trophy-outlined />
-          &lt;span>成绩详情&lt;/span>
-        &lt;/div>
-      &lt;/template>
+      <template #title>
+        <div class="modal-title">
+          <trophy-outlined />
+          <span>成绩详情</span>
+        </div>
+      </template>
       
-      &lt;div class="detail-content" v-if="currentResult">
-        &lt;div class="detail-header">
-          &lt;div class="test-plan-info">
-            &lt;h3>{{ currentResult.test_plan.title }}&lt;/h3>
-            &lt;p>{{ formatDate(currentResult.test_date) }}&lt;/p>
-          &lt;/div>
-          &lt;div class="score-badge" :class="getScoreBadgeClass(currentResult.total_score)">
+      <div class="detail-content" v-if="currentResult">
+        <div class="detail-header">
+          <div class="test-plan-info">
+            <h3>{{ currentResult.test_plan.title }}</h3>
+            <p>{{ formatDate(currentResult.test_date) }}</p>
+          </div>
+          <div class="score-badge" :class="getScoreBadgeClass(currentResult.total_score)">
             {{ currentResult.total_score }}
-            &lt;span class="badge-label">{{ getScoreText(currentResult.total_score) }}&lt;/span>
-          &lt;/div>
-        &lt;/div>
+            <span class="badge-label">{{ getScoreText(currentResult.total_score) }}</span>
+          </div>
+        </div>
         
-        &lt;a-divider />
+        <a-divider />
         
-        &lt;a-row :gutter="[16, 16]">
-          &lt;a-col :xs="24" :sm="12">
-            &lt;div class="stat-card">
-              &lt;div class="stat-icon bmi-icon">
-                &lt;user-outlined />
-              &lt;/div>
-              &lt;div class="stat-info">
-                &lt;div class="stat-label">BMI指数&lt;/div>
-                &lt;div class="stat-value">{{ currentResult.bmi }}&lt;/div>
-              &lt;/div>
-            &lt;/div>
-          &lt;/a-col>
-          &lt;a-col :xs="24" :sm="12">
-            &lt;div class="stat-card">
-              &lt;div class="stat-icon vital-capacity-icon">
-                &lt;dashboard-outlined />
-              &lt;/div>
-              &lt;div class="stat-info">
-                &lt;div class="stat-label">肺活量&lt;/div>
-                &lt;div class="stat-value">{{ currentResult.vital_capacity }} &lt;span class="unit">ml&lt;/span>&lt;/div>
-              &lt;/div>
-            &lt;/div>
-          &lt;/a-col>
-          &lt;a-col :xs="24" :sm="12">
-            &lt;div class="stat-card">
-              &lt;div class="stat-icon run-icon">
-                &lt;thunderbolt-outlined />
-              &lt;/div>
-              &lt;div class="stat-info">
-                &lt;div class="stat-label">50米跑&lt;/div>
-                &lt;div class="stat-value">{{ currentResult.run_50m }} &lt;span class="unit">秒&lt;/span>&lt;/div>
-              &lt;/div>
-            &lt;/div>
-          &lt;/a-col>
-          &lt;a-col :xs="24" :sm="12">
-            &lt;div class="stat-card">
-              &lt;div class="stat-icon flexibility-icon">
-                &lt;node-expand-outlined />
-              &lt;/div>
-              &lt;div class="stat-info">
-                &lt;div class="stat-label">坐位体前屈&lt;/div>
-                &lt;div class="stat-value">{{ currentResult.sit_and_reach }} &lt;span class="unit">cm&lt;/span>&lt;/div>
-              &lt;/div>
-            &lt;/div>
-          &lt;/a-col>
-          &lt;a-col :xs="24" :sm="12">
-            &lt;div class="stat-card">
-              &lt;div class="stat-icon jump-icon">
-                &lt;arrow-up-outlined />
-              &lt;/div>
-              &lt;div class="stat-info">
-                &lt;div class="stat-label">立定跳远&lt;/div>
-                &lt;div class="stat-value">{{ currentResult.standing_jump }} &lt;span class="unit">cm&lt;/span>&lt;/div>
-              &lt;/div>
-            &lt;/div>
-          &lt;/a-col>
-          &lt;a-col :xs="24" :sm="12">
-            &lt;div class="stat-card">
-              &lt;div class="stat-icon endurance-icon">
-                &lt;field-time-outlined />
-              &lt;/div>
-              &lt;div class="stat-info">
-                &lt;div class="stat-label">800米跑&lt;/div>
-                &lt;div class="stat-value">{{ currentResult.run_800m }} &lt;span class="unit">秒&lt;/span>&lt;/div>
-              &lt;/div>
-            &lt;/div>
-          &lt;/a-col>
-        &lt;/a-row>
+        <a-row :gutter="[16, 16]">
+          <a-col :xs="24" :sm="12">
+            <div class="stat-card">
+              <div class="stat-icon bmi-icon">
+                <user-outlined />
+              </div>
+              <div class="stat-info">
+                <div class="stat-label">BMI指数</div>
+                <div class="stat-value">{{ currentResult.bmi }}</div>
+              </div>
+            </div>
+          </a-col>
+          <a-col :xs="24" :sm="12">
+            <div class="stat-card">
+              <div class="stat-icon vital-capacity-icon">
+                <dashboard-outlined />
+              </div>
+              <div class="stat-info">
+                <div class="stat-label">肺活量</div>
+                <div class="stat-value">{{ currentResult.vital_capacity }} <span class="unit">ml</span></div>
+              </div>
+            </div>
+          </a-col>
+          <a-col :xs="24" :sm="12">
+            <div class="stat-card">
+              <div class="stat-icon run-icon">
+                <thunderbolt-outlined />
+              </div>
+              <div class="stat-info">
+                <div class="stat-label">50米跑</div>
+                <div class="stat-value">{{ currentResult.run_50m }} <span class="unit">秒</span></div>
+              </div>
+            </div>
+          </a-col>
+          <a-col :xs="24" :sm="12">
+            <div class="stat-card">
+              <div class="stat-icon flexibility-icon">
+                <node-expand-outlined />
+              </div>
+              <div class="stat-info">
+                <div class="stat-label">坐位体前屈</div>
+                <div class="stat-value">{{ currentResult.sit_and_reach }} <span class="unit">cm</span></div>
+              </div>
+            </div>
+          </a-col>
+          <a-col :xs="24" :sm="12">
+            <div class="stat-card">
+              <div class="stat-icon jump-icon">
+                <arrow-up-outlined />
+              </div>
+              <div class="stat-info">
+                <div class="stat-label">立定跳远</div>
+                <div class="stat-value">{{ currentResult.standing_jump }} <span class="unit">cm</span></div>
+              </div>
+            </div>
+          </a-col>
+          <a-col :xs="24" :sm="12">
+            <div class="stat-card">
+              <div class="stat-icon endurance-icon">
+                <field-time-outlined />
+              </div>
+              <div class="stat-info">
+                <div class="stat-label">800米跑</div>
+                <div class="stat-value">{{ currentResult.run_800m }} <span class="unit">秒</span></div>
+              </div>
+            </div>
+          </a-col>
+        </a-row>
 
-        &lt;template v-if="currentResult?.health_report">
-          &lt;a-divider>
-            &lt;span class="divider-content">
-              &lt;heart-outlined /> 健康报告
-            &lt;/span>
-          &lt;/a-divider>
+        <template v-if="currentResult?.health_report">
+          <a-divider>
+            <span class="divider-content">
+              <heart-outlined /> 健康报告
+            </span>
+          </a-divider>
           
-          &lt;div class="health-report">
-            &lt;div class="report-item">
-              &lt;h4>总体评估&lt;/h4>
-              &lt;p>{{ currentResult.health_report.overall_assessment }}&lt;/p>
-            &lt;/div>
-            &lt;div class="report-item">
-              &lt;h4>健康建议&lt;/h4>
-              &lt;p>{{ currentResult.health_report.health_suggestions }}&lt;/p>
-            &lt;/div>
-          &lt;/div>
-        &lt;/template>
+          <div class="health-report">
+            <div class="report-item">
+              <h4>总体评估</h4>
+              <p>{{ currentResult.health_report.overall_assessment }}</p>
+            </div>
+            <div class="report-item">
+              <h4>健康建议</h4>
+              <p>{{ currentResult.health_report.health_suggestions }}</p>
+            </div>
+          </div>
+        </template>
         
-        &lt;a-divider v-else />
+        <a-divider v-else />
         
-        &lt;div class="detail-footer" v-if="!currentResult?.health_report">
-          &lt;a-alert type="info" show-icon>
-            &lt;template #message>
+        <div class="detail-footer" v-if="!currentResult?.health_report">
+          <a-alert type="info" show-icon>
+            <template #message>
               该测试成绩暂无健康报告
-            &lt;/template>
-            &lt;template #description>
+            </template>
+            <template #description>
               健康报告将在教师评估后生成
-            &lt;/template>
-          &lt;/a-alert>
-        &lt;/div>
-      &lt;/div>
-    &lt;/a-modal>
-  &lt;/div>
-&lt;/template>
+            </template>
+          </a-alert>
+        </div>
+      </div>
+    </a-modal>
+  </div>
+</template>
 
-&lt;script setup>
+<script setup>
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
-import axios from 'axios'
+import api from '@/services/api'
 import * as echarts from 'echarts'
 import { formatDate } from '@/utils/format'
 import { 
@@ -241,7 +253,7 @@ const columns = [
     sorter: (a, b) => a.total_score - b.total_score,
   },
   {
-    title: '是否补考',
+    title: '是否已补考',
     dataIndex: 'is_makeup',
     key: 'is_makeup',
     filters: [
@@ -290,10 +302,11 @@ const getScoreBadgeClass = (score) => {
 const fetchTestResults = async () => {
   loading.value = true
   try {
-    const response = await axios.get('/api/test-results/')
+    const response = await api.get('/test-results/')
     console.log('API返回的成绩数据:', response.data)
     testResults.value = response.data
   } catch (error) {
+    console.error('获取测试结果失败:', error)
     message.error('获取成绩数据失败')
   } finally {
     loading.value = false
@@ -479,9 +492,9 @@ onUnmounted(() => {
     window.removeEventListener('resize', handleResize)
   }
 })
-&lt;/script>
+</script>
 
-&lt;style scoped>
+<style scoped>
 .test-results {
   width: 100%;
 }
@@ -791,4 +804,4 @@ onUnmounted(() => {
     align-self: flex-start;
   }
 }
-&lt;/style>
+</style>

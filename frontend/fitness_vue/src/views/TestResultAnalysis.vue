@@ -1,3 +1,14 @@
+<!--
+  @description 体测成绩分析组件
+  @roles 管理员、教师 - 分析学生体测数据
+  @functionality
+    - 提供多维度的数据筛选（测试计划、班级、性别、项目）
+    - 展示成绩分布饼图，直观展示不同成绩段的占比
+    - 展示平均分比较柱状图，对比不同班级的平均成绩
+    - 展示成绩趋势分析图，跟踪不同时间点的成绩变化
+    - 提供详细的成绩数据表格，支持排序和筛选
+-->
+
 <template>
   <div class="test-result-analysis">
     <a-card title="成绩分析" :bordered="false">

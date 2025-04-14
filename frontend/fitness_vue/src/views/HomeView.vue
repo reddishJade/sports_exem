@@ -1,3 +1,12 @@
+<!--
+  @description 首页仪表盘视图组件 - 提供系统概览和快捷入口
+  @roles 所有已认证用户
+  @features
+    - 展示待测试计划和通知
+    - 显示最新成绩和健康报告
+    - 提供快捷导航到各个功能模块
+    - 数据可视化和统计信息
+-->
 <template>
   <div class="home">
     <a-row :gutter="24">
@@ -214,7 +223,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Store, useStore } from 'vuex'
-import axios from 'axios'
+import api from '@/services/api'
 import * as echarts from 'echarts'
 import { 
   CalendarOutlined, 
@@ -407,21 +416,15 @@ const fetchData = async () => {
   loading.value = true
   try {
     // 获取待测试计划
-    const testPlansResponse = await axios.get('http://localhost:8000/api/test-plans/', {
-      headers: { Authorization: `Bearer ${store.state.token}` }
-    })
+    const testPlansResponse = await api.get('/test-plans/')
     upcomingTests.value = testPlansResponse.data.slice(0, 5)
 
     // 获取最近成绩
-    const resultsResponse = await axios.get('http://localhost:8000/api/test-results/', {
-      headers: { Authorization: `Bearer ${store.state.token}` }
-    })
+    const resultsResponse = await api.get('/test-results/')
     recentResults.value = resultsResponse.data.slice(0, 5)
 
     // 获取健康建议
-    const reportsResponse = await axios.get('http://localhost:8000/api/health-reports/', {
-      headers: { Authorization: `Bearer ${store.state.token}` }
-    })
+    const reportsResponse = await api.get('/health-reports/')
     healthTips.value = reportsResponse.data.slice(0, 5).map((report: any) => ({
       title: '健康建议',
       description: report.health_suggestions.slice(0, 50) + '...'
@@ -437,9 +440,7 @@ const fetchData = async () => {
 const fetchNews = async () => {
   newsLoading.value = true
   try {
-    const response = await axios.get('http://localhost:8000/api/news/', {
-      headers: { Authorization: `Bearer ${store.state.token}` }
-    })
+    const response = await api.get('/news/')
     newsList.value = response.data.slice(0, 5)
   } catch (error) {
     console.error('获取新闻失败:', error)

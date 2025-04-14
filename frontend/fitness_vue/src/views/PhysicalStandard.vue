@@ -1,3 +1,12 @@
+<!--
+  @description 体测标准视图组件 - 展示和管理体测评分标准
+  @roles 所有用户查看，管理员编辑
+  @features
+    - 按性别分类展示体测标准
+    - 管理员可设置和编辑标准
+    - 支持不同年龄段和项目的标准设置
+    - 提供标准对比和查询
+-->
 <template>
   <div class="physical-standard">
     <div class="table-operations" style="margin-bottom: 16px">

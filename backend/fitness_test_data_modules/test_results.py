@@ -146,6 +146,8 @@ def generate_test_result(student, plan):
     result = TestResult.objects.create(
         student=student,
         test_plan=plan,
+        height=height,  # 添加身高字段
+        weight=weight,  # 添加体重字段
         bmi=bmi,
         vital_capacity=vital_capacity,
         run_50m=fifty_run,

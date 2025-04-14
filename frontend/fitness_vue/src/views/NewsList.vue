@@ -1,3 +1,12 @@
+<!--
+  @description 新闻列表视图组件 - 展示体育新闻和健康资讯列表
+  @roles 所有用户
+  @features
+    - 展示置顶新闻和普通新闻列表
+    - 支持新闻分类和筛选
+    - 提供新闻阅读量统计
+    - 响应式布局适配不同设备
+-->
 <template>
   <div class="news-list-container">
     <div class="news-list">

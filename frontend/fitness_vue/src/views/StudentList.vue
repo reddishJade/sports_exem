@@ -1,3 +1,12 @@
+<!--
+  @description 学生管理视图组件 - 管理学生基本信息
+  @roles 管理员
+  @features
+    - 学生信息列表展示和管理
+    - 支持添加、编辑和删除学生
+    - 提供学生信息搜索和筛选
+    - 查看学生详细信息和成绩
+-->
 <template>
   <div class="student-list-container">
     <div class="student-list">

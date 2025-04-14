@@ -1,3 +1,11 @@
+<!--
+  @description 简洁登录视图组件 - 提供基本登录功能
+  @roles 未认证用户
+  @features
+    - 基本的用户名密码登录表单
+    - 表单验证和错误提示
+    - 简洁的卡片式设计
+-->
 <template>
   <div class="login-container">
     <a-card title="体测管理系统登录" style="width: 400px">

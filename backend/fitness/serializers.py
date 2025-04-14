@@ -35,44 +35,13 @@ class TestResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestResult
         # 显式列出所有字段，确保is_passed被包含
-        fields = ('id', 'student', 'test_plan', 'bmi', 'vital_capacity', 'run_50m', 
+        fields = ('id', 'student', 'test_plan', 'height', 'weight', 'bmi', 'vital_capacity', 'run_50m', 
                   'sit_and_reach', 'standing_jump', 'run_800m', 'total_score', 'test_date', 
                   'is_makeup', 'is_passed')
         
     def get_is_passed(self, obj):
-        # 获取对应性别的体测标准
-        standard = PhysicalStandard.objects.get(gender=obj.student.gender)
-        
-        # 检查每个项目是否达到及格标准
-        vital_capacity_passed = obj.vital_capacity >= standard.vital_capacity_pass
-        run_50m_passed = obj.run_50m <= standard.run_50m_pass
-        sit_and_reach_passed = obj.sit_and_reach >= standard.sit_and_reach_pass
-        standing_jump_passed = obj.standing_jump >= standard.standing_jump_pass
-        run_800m_passed = obj.run_800m <= standard.run_800m_pass
-        
-        all_items_passed = all([
-            vital_capacity_passed,
-            run_50m_passed,
-            sit_and_reach_passed,
-            standing_jump_passed,
-            run_800m_passed
-        ])
-        
-        # 打印详细信息
-        print(f"TestResult ID: {obj.id}, Student: {obj.student.name}, Total Score: {obj.total_score}")
-        print(f"  肺活量: {obj.vital_capacity} >= {standard.vital_capacity_pass} = {vital_capacity_passed}")
-        print(f"  50米跑: {obj.run_50m} <= {standard.run_50m_pass} = {run_50m_passed}")
-        print(f"  坐位体前屈: {obj.sit_and_reach} >= {standard.sit_and_reach_pass} = {sit_and_reach_passed}")
-        print(f"  立定跳远: {obj.standing_jump} >= {standard.standing_jump_pass} = {standing_jump_passed}")
-        print(f"  800米跑: {obj.run_800m} <= {standard.run_800m_pass} = {run_800m_passed}")
-        print(f"  全部项目通过: {all_items_passed}")
-        
-        # 总分及格线为60分
-        score_passed = obj.total_score >= 60
-        passed = score_passed and all_items_passed
-        print(f"  最终是否通过: {passed} (总分>=60:{score_passed} AND 所有项目通过:{all_items_passed})")
-        
-        return passed
+        # 直接调用模型的is_passed方法，保持逻辑统一
+        return obj.is_passed
 
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:

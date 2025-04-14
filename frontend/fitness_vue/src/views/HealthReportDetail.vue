@@ -1,3 +1,12 @@
+<!--
+  @description 健康报告详情视图组件 - 显示学生体质健康报告的详细信息
+  @roles 学生、家长、管理员
+  @features
+    - 展示学生健康报告的详细指标
+    - 提供健康评估和分析图表
+    - 包含个性化健康建议
+    - 支持导出和打印报告
+-->
 <template>
   <div class="health-report-detail">
     <a-page-header
@@ -146,7 +155,7 @@
           </div>
 
           <div class="action-buttons" style="margin-top: 24px; display: flex; justify-content: flex-end;">
-            <a-button type="primary" style="margin-right: 8px;">
+            <a-button type="primary" style="margin-right: 8px;" @click="printReport">
               打印健康报告
             </a-button>
             <a-button @click="$router.go(-1)">
@@ -185,7 +194,7 @@ import { ref, reactive, onMounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useStore } from 'vuex'
-import axios from 'axios'
+import api from '@/services/api'
 import * as echarts from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import {
@@ -235,9 +244,7 @@ const fetchHealthReport = async () => {
   loading.value = true
   try {
     console.log('获取健康报告详情，ID:', healthReportId)
-    const response = await axios.get(`http://localhost:8000/api/health-reports/${healthReportId}/`, {
-      headers: { Authorization: `Bearer ${store.state.token}` }
-    })
+    const response = await api.get(`/health-reports/${healthReportId}/`)
     
     // 记录原始响应
     console.log('健康报告API响应:', response.data)
@@ -249,18 +256,14 @@ const fetchHealthReport = async () => {
     if (report.test_result && typeof report.test_result === 'number') {
       try {
         console.log('正在获取测试结果详情...')
-        const testResultResponse = await axios.get(`http://localhost:8000/api/test-results/${report.test_result}/`, {
-          headers: { Authorization: `Bearer ${store.state.token}` }
-        })
+        const testResultResponse = await api.get(`/test-results/${report.test_result}/`)
         report.test_result = testResultResponse.data
         console.log('测试结果详情:', report.test_result)
         
         // 如果学生是ID，需要获取学生详情
         if (report.test_result.student && typeof report.test_result.student === 'number') {
           try {
-            const studentResponse = await axios.get(`http://localhost:8000/api/students/${report.test_result.student}/`, {
-              headers: { Authorization: `Bearer ${store.state.token}` }
-            })
+            const studentResponse = await api.get(`/students/${report.test_result.student}/`)
             report.test_result.student = studentResponse.data
             console.log('学生详情:', report.test_result.student)
           } catch (studentError) {
@@ -310,31 +313,14 @@ const fetchHealthReport = async () => {
       report_type: '体测健康报告',
       student_name: '未知',
       student_id: '未知',
-      class_name: '高二(2)班',
-      height: 180,
-      weight: 70,
-      bmi: 21.6,
-      health_analysis: '根据本次体测结果，您的各项指标均在正常范围内。BMI指数为21.6，属于正常范围。体能测试中，耐力项目表现略微欠佳，其他项目表现良好。总体来说，身体健康状况良好，但仍有提升空间。',
-      health_suggestions: '增加有氧运动，每周至少3次，每次30分钟以上。\n保持良好的饮食习惯，增加蛋白质摄入。\n注意保持充足的睡眠，每晚7-8小时。\n建议加强耐力训练，提高心肺功能。',
-      comments: [
-        {
-          author: '体育老师',
-          avatar: 'https://joeschmoe.io/api/v1/joe',
-          content: '李四同学，你的身体素质总体不错，但耐力方面需要加强，建议多做些长跑训练。',
-          datetime: '2023-10-21 14:30:25'
-        },
-        {
-          author: '李四',
-          avatar: 'https://joeschmoe.io/api/v1/jon',
-          content: '谢谢老师的建议，我会加强耐力训练的！',
-          datetime: '2023-10-21 15:45:10'
-        }
-      ],
-      history_data: [
-        { date: '2023-03', bmi: 22.1, weight: 72 },
-        { date: '2023-06', bmi: 21.8, weight: 71 },
-        { date: '2023-09', bmi: 21.6, weight: 70 }
-      ]
+      class_name: '未知',
+      height: 0,
+      weight: 0,
+      bmi: 0,
+      health_analysis: '获取报告失败，请检查网络或联系管理员。',
+      health_suggestions: '',
+      comments: [],
+      history_data: []
     }
   } finally {
     loading.value = false
@@ -343,6 +329,43 @@ const fetchHealthReport = async () => {
       renderWeightChart()
     })
   }
+}
+
+const printReport = () => {
+  const printContent = document.querySelector('.health-report-detail').cloneNode(true);
+  
+  // 移除不需要打印的元素
+  const actionsToRemove = printContent.querySelectorAll('.action-buttons, .comment-editor');
+  actionsToRemove.forEach(el => el.remove());
+  
+  // 创建打印样式
+  const style = document.createElement('style');
+  style.textContent = `
+    body {
+      font-family: Arial, sans-serif;
+      color: #333;
+    }
+    .health-report-detail {
+      padding: 20px;
+      max-width: 100%;
+    }
+    @media print {
+      .ant-layout-sider, .site-header, .ant-menu {
+        display: none !important;
+      }
+    }
+  `;
+  
+  // 创建打印窗口
+  const printWindow = window.open('', '_blank');
+  printWindow.document.body.appendChild(style);
+  printWindow.document.body.appendChild(printContent);
+  
+  // 等待图表和样式加载完成
+  setTimeout(() => {
+    printWindow.print();
+    printWindow.close();
+  }, 500);
 }
 
 const getBMIColor = (bmi) => {
@@ -467,21 +490,20 @@ const handleSubmitComment = async () => {
   submitting.value = true
   
   try {
-    // 在实际应用中，这里应该使用真实的API调用
     // 检查用户权限
     if (!isStudent.value) {
       message.error('只有学生可以添加评论')
       return
     }
 
-    const newComment = {
-      author: userName.value,
-      avatar: userAvatar.value,
-      content: commentValue.value,
-      datetime: new Date().toLocaleString()
-    }
+    // 使用真实的API调用发送评论
+    const response = await axios.post(`/api/health-reports/${healthReportId}/comments/`, {
+      content: commentValue.value
+    })
     
-    // 在此假设评论发送成功
+    const newComment = response.data
+    
+    // 更新评论列表
     if (!healthReport.value.comments) {
       healthReport.value.comments = []
     }
@@ -510,6 +532,9 @@ onMounted(() => {
 <style scoped>
 .health-report-detail {
   padding: 0 24px;
+  max-width: 100%;
+  overflow-x: hidden;
+  height: 100%;
 }
 
 .report-card,
@@ -540,5 +565,23 @@ onMounted(() => {
 
 .comment-editor {
   margin-top: 16px;
+}
+
+/* 确保整体布局可滚动 */
+.trends-card, .report-card {
+  margin-bottom: 20px;
+  overflow: visible;
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+  .health-report-detail {
+    padding: 0 16px;
+  }
+  
+  .report-card,
+  .trends-card {
+    margin-bottom: 16px;
+  }
 }
 </style>

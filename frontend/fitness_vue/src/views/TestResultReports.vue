@@ -1,3 +1,15 @@
+<!--
+  @description 体测成绩报表管理组件
+  @roles 管理员、教师 - 生成和导出各类体测报表
+  @functionality
+    - 提供班级报表功能，包含班级整体成绩统计和学生个人成绩列表
+    - 提供学生个人报表功能，展示学生历次测试成绩和对比分析
+    - 支持年度报表功能，对比不同班级的平均成绩
+    - 集成图表可视化，包括成绩分布饼图、成绩趋势折线图等
+    - 支持报表导出（Excel、PDF）和打印功能
+    - 提供多维度的数据筛选和查询功能
+-->
+
 <template>
   <div class="test-result-reports">
     <a-card title="成绩报表管理" :bordered="false">
@@ -629,15 +641,16 @@ const generateClassReport = async () => {
   classReport.generated = true
   
   try {
-    // 这里应该调用后端API获取班级报表数据
-    // 为了演示，使用模拟数据
-    const response = await fetchMockClassReport(classReport.selectedPlan, classReport.selectedClass)
+    // 调用真实的API获取班级报表数据
+    const response = await fetchClassReport(classReport.selectedPlan, classReport.selectedClass)
     classReport.data = response
     
     // 渲染报表图表
-    setTimeout(() => {
-      renderDistributionChart()
-    }, 100)
+    if (response) {
+      setTimeout(() => {
+        renderDistributionChart()
+      }, 100)
+    }
   } catch (error) {
     console.error('生成班级报表失败:', error)
     classReport.data = null
@@ -654,16 +667,17 @@ const generateStudentReport = async () => {
   studentReport.generated = true
   
   try {
-    // 这里应该调用后端API获取学生个人报表数据
-    // 为了演示，使用模拟数据
-    const response = await fetchMockStudentReport(studentReport.selectedPlan, studentReport.selectedStudent)
+    // 调用真实的API获取学生个人报表数据
+    const response = await fetchStudentReport(studentReport.selectedPlan, studentReport.selectedStudent)
     studentReport.data = response
     
     // 渲染报表图表
-    setTimeout(() => {
-      renderStudentScoreChart()
-      renderStudentComparisonChart()
-    }, 100)
+    if (response) {
+      setTimeout(() => {
+        renderStudentScoreChart()
+        renderStudentComparisonChart()
+      }, 100)
+    }
   } catch (error) {
     console.error('生成学生个人报表失败:', error)
     studentReport.data = null
@@ -679,15 +693,16 @@ const generateAnnualReport = async () => {
   annualReport.loading = true
   
   try {
-    // 这里应该调用后端API获取学年度报表数据
-    // 为了演示，使用模拟数据
-    const response = await fetchMockAnnualReport(annualReport.selectedYear)
+    // 调用真实的API获取学年度报表数据
+    const response = await fetchAnnualReport(annualReport.selectedYear)
     annualReport.data = response
     
     // 渲染报表图表
-    setTimeout(() => {
-      renderAnnualChart()
-    }, 100)
+    if (response) {
+      setTimeout(() => {
+        renderAnnualChart()
+      }, 100)
+    }
   } catch (error) {
     console.error('生成学年度报表失败:', error)
     annualReport.data = null
@@ -696,111 +711,60 @@ const generateAnnualReport = async () => {
   }
 }
 
-// 模拟获取班级报表数据
-const fetchMockClassReport = async (planId, className) => {
-  // 实际项目中应该替换为真实的API调用
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const mockData = {
-        basic: {
-          plan_title: testPlans.value.find(p => p.id === planId)?.title || '2023年秋季体测',
-          test_date: '2023-10-15',
-          class_name: className
-        },
-        statistics: {
-          total_students: 45,
-          avg_score: 83.6,
-          pass_rate: 94.5,
-          excellent_rate: 22.2,
-          male_avg_score: 85.3,
-          female_avg_score: 81.9
-        },
-        items: [
-          { item_name: '身高体重', avg_score: 89.5, pass_rate: 100, excellent_rate: 42, max_score: 100, min_score: 75 },
-          { item_name: '50米跑', avg_score: 82.1, pass_rate: 93, excellent_rate: 18, max_score: 98, min_score: 58 },
-          { item_name: '立定跳远', avg_score: 79.8, pass_rate: 90, excellent_rate: 12, max_score: 95, min_score: 55 },
-          { item_name: '仰卧起坐', avg_score: 84.7, pass_rate: 95, excellent_rate: 25, max_score: 100, min_score: 60 },
-          { item_name: '耐力跑', avg_score: 77.2, pass_rate: 88, excellent_rate: 10, max_score: 92, min_score: 48 },
-          { item_name: '坐位体前屈', avg_score: 86.3, pass_rate: 97, excellent_rate: 30, max_score: 98, min_score: 68 }
-        ],
-        students: Array.from({ length: 45 }, (_, i) => {
-          const score = Math.floor(60 + Math.random() * 40)
-          return {
-            id: i + 1,
-            name: `学生${i + 1}`,
-            student_id: `S${2023000 + i + 1}`,
-            gender: i % 2 === 0 ? '男' : '女',
-            total_score: score,
-            level: score >= 90 ? '优秀' : score >= 80 ? '良好' : score >= 70 ? '中等' : score >= 60 ? '及格' : '不及格',
-            rank: i + 1
-          }
-        }).sort((a, b) => b.total_score - a.total_score).map((student, index) => ({
-          ...student,
-          rank: index + 1
-        }))
+// 使用API获取班级报表数据
+const fetchClassReport = async (planId, className) => {
+  try {
+    // 调用后端 API 获取班级报表数据
+    const response = await axios.get('/api/reports/class', {
+      params: {
+        plan_id: planId,
+        class_name: className
       }
-      resolve(mockData)
-    }, 1000)
-  })
+    })
+    return response.data
+  } catch (error) {
+    console.error('获取班级报表失败:', error)
+    message.error('获取班级报表数据失败，请稍后再试')
+    // 返回空数据而不是模拟数据
+    return null
+  }
 }
 
-// 模拟获取学生个人报表数据
-const fetchMockStudentReport = async (planId, studentId) => {
-  // 实际项目中应该替换为真实的API调用
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const mockData = {
-        basic: {
-          plan_title: testPlans.value.find(p => p.id === planId)?.title || '2023年秋季体测',
-          test_date: '2023-10-15',
-          name: '学生1',
-          student_id: 'S20230001',
-          gender: '男',
-          class_name: '高一(1)班',
-          total_score: 85,
-          level: '良好',
-          class_rank: 10,
-          class_total: 45
-        },
-        items: [
-          { item_name: '身高体重', score: 90, level: '优秀', percentile: 85 },
-          { item_name: '50米跑', score: 80, level: '良好', percentile: 70 },
-          { item_name: '立定跳远', score: 75, level: '中等', percentile: 60 },
-          { item_name: '仰卧起坐', score: 85, level: '良好', percentile: 80 },
-          { item_name: '耐力跑', score: 70, level: '中等', percentile: 55 },
-          { item_name: '坐位体前屈', score: 80, level: '良好', percentile: 75 }
-        ],
-        comment: '学生1在本次体测中表现良好，尤其是在耐力跑和坐位体前屈项目中取得了优秀成绩。'
+// 使用API获取学生个人报表数据
+const fetchStudentReport = async (planId, studentId) => {
+  try {
+    // 调用后端 API 获取学生个人报表数据
+    const response = await axios.get('/api/reports/student', {
+      params: {
+        plan_id: planId,
+        student_id: studentId
       }
-      resolve(mockData)
-    }, 1000)
-  })
+    })
+    return response.data
+  } catch (error) {
+    console.error('获取学生个人报表失败:', error)
+    message.error('获取学生个人报表数据失败，请稍后再试')
+    // 返回空数据而不是模拟数据
+    return null
+  }
 }
 
-// 模拟获取学年度报表数据
-const fetchMockAnnualReport = async (year) => {
-  // 实际项目中应该替换为真实的API调用
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const mockData = {
-        basic: {
-          year: year,
-          total_students: 1245,
-          avg_score: 83.2,
-          pass_rate: 92.5,
-          excellent_rate: 24.8,
-          fail_rate: 7.5
-        },
-        items: [
-          { class_name: '高一(1)班', student_count: 45, avg_score: 85.6, pass_rate: '95%', excellent_rate: '28%' },
-          { class_name: '高一(2)班', student_count: 47, avg_score: 82.4, pass_rate: '93%', excellent_rate: '23%' },
-          { class_name: '高二(1)班', student_count: 42, avg_score: 84.1, pass_rate: '94%', excellent_rate: '26%' },
-          { class_name: '高二(2)班', student_count: 44, avg_score: 81.8, pass_rate: '91%', excellent_rate: '22%' }
-        ]
+// 使用API获取学年度报表数据
+const fetchAnnualReport = async (year) => {
+  try {
+    // 调用后端 API 获取学年度报表数据
+    const response = await axios.get('/api/reports/annual', {
+      params: {
+        year: year
       }
-      resolve(mockData)
-    }, 1000)
-  })
+    })
+    return response.data
+  } catch (error) {
+    console.error('获取学年度报表失败:', error)
+    message.error('获取学年度报表数据失败，请稍后再试')
+    // 返回空数据而不是模拟数据
+    return null
+  }
 }
 
 // 渲染分布图表

@@ -1,62 +1,62 @@
-&lt;template>
-  &lt;a-layout class="layout">
-    &lt;a-layout-sider
+<template>
+  <a-layout class="layout">
+    <a-layout-sider
       v-model:collapsed="collapsed"
       :trigger="null"
       collapsible
       class="sider"
     >
-      &lt;div class="logo">
-        &lt;img src="@/assets/logo.png" alt="Logo" />
-        &lt;h1 v-show="!collapsed">体测管理系统&lt;/h1>
-      &lt;/div>
-      &lt;side-menu :collapsed="collapsed" />
-    &lt;/a-layout-sider>
+      <div class="logo">
+        <img src="@/assets/logo.png" alt="Logo" />
+        <h1 v-show="!collapsed">体测管理系统</h1>
+      </div>
+      <side-menu :collapsed="collapsed" />
+    </a-layout-sider>
 
-    &lt;a-layout>
-      &lt;a-layout-header class="header">
-        &lt;menu-unfold-outlined
+    <a-layout>
+      <a-layout-header class="header">
+        <menu-unfold-outlined
           v-if="collapsed"
           class="trigger"
           @click="() => (collapsed = !collapsed)"
         />
-        &lt;menu-fold-outlined
+        <menu-fold-outlined
           v-else
           class="trigger"
           @click="() => (collapsed = !collapsed)"
         />
-        &lt;div class="header-right">
-          &lt;a-dropdown>
-            &lt;a class="ant-dropdown-link" @click.prevent>
+        <div class="header-right">
+          <a-dropdown>
+            <a class="ant-dropdown-link" @click.prevent>
               {{ username }}
-              &lt;down-outlined />
-            &lt;/a>
-            &lt;template #overlay>
-              &lt;a-menu>
-                &lt;a-menu-item key="profile" @click="navigateTo('/profile')">
+              <down-outlined />
+            </a>
+            <template #overlay>
+              <a-menu>
+                <a-menu-item key="profile" @click="navigateTo('/profile')">
                   个人信息
-                &lt;/a-menu-item>
-                &lt;a-menu-item key="logout" @click="handleLogout">
+                </a-menu-item>
+                <a-menu-item key="logout" @click="handleLogout">
                   退出登录
-                &lt;/a-menu-item>
-              &lt;/a-menu>
-            &lt;/template>
-          &lt;/a-dropdown>
-        &lt;/div>
-      &lt;/a-layout-header>
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
+        </div>
+      </a-layout-header>
 
-      &lt;a-layout-content class="content">
-        &lt;router-view>&lt;/router-view>
-      &lt;/a-layout-content>
+      <a-layout-content class="content">
+        <router-view></router-view>
+      </a-layout-content>
 
-      &lt;a-layout-footer class="footer">
-        体测管理系统 ©2025 Created by Your Name
-      &lt;/a-layout-footer>
-    &lt;/a-layout>
-  &lt;/a-layout>
-&lt;/template>
+      <a-layout-footer class="footer">
+        体测管理系统 2025 Created by Your Name
+      </a-layout-footer>
+    </a-layout>
+  </a-layout>
+</template>
 
-&lt;script setup>
+<script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
@@ -81,9 +81,9 @@ const handleLogout = () => {
   store.dispatch('logout')
   router.push('/login')
 }
-&lt;/script>
+</script>
 
-&lt;style scoped>
+<style scoped>
 .layout {
   min-height: 100vh;
 }
@@ -159,4 +159,4 @@ const handleLogout = () => {
   display: flex;
   flex-direction: column;
 }
-&lt;/style>
+</style>

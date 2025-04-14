@@ -1,6 +1,32 @@
+<!--
+  @description 体质健康报告视图组件 - 提供学生体质健康评估报告
+  @roles 学生、家长、管理员
+  @features
+    - 列表展示学生体质健康报告
+    - 管理员可生成新的体质报告
+    - 查看报告详情和历史记录
+    - 提供健康建议和改进方案
+-->
 <template>
   <div class="health-report-container">
     <div class="health-report">
+      <!-- 家长用户权限提示 -->
+      <a-alert
+        v-if="isParent && showParentNotice"
+        type="info"
+        show-icon
+        closable
+        @close="closeParentNotice"
+        class="parent-notice"
+      >
+        <template #message>
+          <span class="notice-title">家长用户提示</span>
+        </template>
+        <template #description>
+          <p>尊敬的家长，您正在查看与您孩子相关的体质健康报告。根据系统权限设置，您可能无法查看某些详细数据。这是正常现象，系统会自动处理这些情况并提供适当的替代信息。</p>
+        </template>
+      </a-alert>
+      
       <div class="page-header">
         <h1 class="page-title">
           <medicine-box-outlined /> 体质健康报告
@@ -344,7 +370,9 @@ import {
 import axios from 'axios'
 import dayjs from 'dayjs'
 import { useStore } from 'vuex'
-import { useRouter } from 'vue-router'
+import { useRouter } from 'vue-router' // 新增：导入 useRouter
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 
 export default defineComponent({
   name: 'HealthReport',
@@ -365,6 +393,7 @@ export default defineComponent({
   },
   setup() {
     const store = useStore()
+    const router = useRouter() // 新增：获取 router 实例
     const loading = ref(false)
     const visible = ref(false)
     const detailVisible = ref(false)
@@ -372,6 +401,7 @@ export default defineComponent({
     const modalTitle = ref('生成体质报告')
     const reports = ref([])
     const testResults = ref([])
+    const testResultsCache = ref({})
     const formRef = ref(null)
     const currentDetail = ref(null)
     const searchValue = ref('')
@@ -478,20 +508,41 @@ export default defineComponent({
       }
     }
 
+    // 检查当前用户是否为家长
+    const isParent = computed(() => store.state.user && store.state.user.user_type === 'parent')
+    
+    // 添加家长提示模块
+    const showParentNotice = ref(true) // 默认显示
+    
+    // 关闭家长提示
+    const closeParentNotice = () => {
+      showParentNotice.value = false
+    }
+
     const fetchReports = async (page = 1) => {
       loading.value = true
       try {
         // 启用控制台日志跟踪问题
         console.log('Fetching health reports...')
         
-        // 获取健康报告数据
-        const response = await axios.get('http://localhost:8000/api/health-reports/', {
+        // 获取健康报告数据 - 使用标准端点，但添加查询参数用于权限控制
+        // 对于家长用户，添加 parent=true 参数，让后端只返回该家长有权查看的报告
+        let endpoint = 'http://localhost:8000/api/health-reports/'
+        // 在URL查询参数中添加parent标志，后端可以据此过滤结果只展示关联的学生
+        let queryParams = {
+          page,
+          page_size: pageSize.value,
+          search: searchValue.value ? searchValue.value.trim() : undefined
+        }
+        
+        // 如果是家长用户，添加parent=true参数
+        if (isParent.value) {
+          queryParams.parent = true
+        }
+        
+        const response = await axios.get(endpoint, {
           headers: { Authorization: `Bearer ${store.state.token}` },
-          params: {
-            page,
-            page_size: pageSize.value,
-            search: searchValue.value ? searchValue.value.trim() : undefined
-          }
+          params: queryParams
         })
         
         console.log('API Response:', response.data)
@@ -570,14 +621,66 @@ export default defineComponent({
           console.log(`需要加载 ${testResultIdsToFetch.size} 个测试结果`)
           
           // 为每个测试结果 ID 单独回去服务器获取数据
+          // 家长用户使用不同的API端点或缓存已知信息
           const testResultPromises = Array.from(testResultIdsToFetch).map(async testResultId => {
             try {
-              const response = await axios.get(`http://localhost:8000/api/test-results/${testResultId}/`, {
-                headers: { Authorization: `Bearer ${store.state.token}` }
-              })
-              return { id: testResultId, data: response.data }
+              // 所有用户使用同一端点，权限由后端处理
+              const endpoint = `http://localhost:8000/api/test-results/${testResultId}/`
+              
+              // 定义params变量用于API请求参数
+              const params = isParent.value ? { parent: true } : {}
+              try {
+                const response = await axios.get(endpoint, {
+                  headers: { Authorization: `Bearer ${store.state.token}` },
+                  params: params
+                })
+                
+                // 更新缓存并返回结果
+                testResultsCache.value[testResultId] = response.data
+                return { id: testResultId, data: response.data }
+              } catch (error) {
+                // 创建一个占位测试结果对象，包含必要的字段但值为空或默认值
+                console.log(`无法获取测试结果详情，使用占位数据: ${error.message}`)
+                const placeholderTestResult = {
+                  id: testResultId,
+                  student: null, // 学生ID，后续可能需要获取
+                  test_date: new Date().toISOString(),
+                  height: '数据不可用',
+                  weight: '数据不可用',
+                  vital_capacity: '数据不可用',
+                  sprint_50m: '数据不可用',
+                  endurance_run: '数据不可用',
+                  sit_and_reach: '数据不可用',
+                  long_jump: '数据不可用',
+                  pull_up: '数据不可用',
+                  sit_up: '数据不可用',
+                  score: '数据不可用',
+                  grade: '数据不可用',
+                  permissions_error: true // 标记为权限错误，UI可以使用此标志显示特殊提示
+                }
+                
+                // 更新缓存并返回占位数据
+                testResultsCache.value[testResultId] = placeholderTestResult
+                return { id: testResultId, data: placeholderTestResult }
+              }
             } catch (error) {
               console.error(`获取测试结果 ID ${testResultId} 失败:`, error)
+              
+              // 对于家长用户，提供友好的错误处理
+              if (isParent.value && error.response?.status === 404) {
+                // 为家长用户创建一个简化的测试结果数据
+                return { 
+                  id: testResultId, 
+                  data: {
+                    id: testResultId,
+                    test_date: null,
+                    total_score: '限制访问',
+                    student: { name: '学生信息' },
+                    _parentMessage: '家长账号只能查看有限的信息'
+                  }
+                }
+              }
+              
               return { id: testResultId, data: null, error, errorStatus: error.response?.status || 'unknown' }
             }
           })
@@ -620,14 +723,38 @@ export default defineComponent({
           if (studentIdsToFetch.size > 0) {
             console.log(`需要加载 ${studentIdsToFetch.size} 个学生信息`)
             
+            // 根据用户类型选择不同的API端点
             const studentPromises = Array.from(studentIdsToFetch).map(async studentId => {
               try {
-                const response = await axios.get(`http://localhost:8000/api/students/${studentId}/`, {
-                  headers: { Authorization: `Bearer ${store.state.token}` }
+                // 所有用户使用标准端点获取学生信息
+                // 对于家长用户，使用附加参数来表明身份
+                const endpoint = `http://localhost:8000/api/students/${studentId}/`
+                
+                // 对于家长用户，添加查询参数以确保权限检查
+                const params = isParent.value ? { parent: true } : {}
+                
+                const response = await axios.get(endpoint, {
+                  headers: { Authorization: `Bearer ${store.state.token}` },
+                  params: params
                 })
                 return { id: studentId, data: response.data }
               } catch (error) {
                 console.error(`获取学生 ID ${studentId} 失败:`, error)
+                
+                // 如果是家长用户并且出现了认证错误
+                if (isParent.value && (error.response?.status === 404 || error.response?.status === 403)) {
+                  // 返回一个简化的学生信息，表明权限受限
+                  return { 
+                    id: studentId, 
+                    data: { 
+                      id: studentId,
+                      name: '权限受限',
+                      student_code: '***',
+                      _parentAccessRestricted: true
+                    } 
+                  }
+                }
+                
                 return { id: studentId, data: null, error }
               }
             })
@@ -809,55 +936,60 @@ export default defineComponent({
     }
 
     const viewReport = (record) => {
-      console.log('Viewing report details:', record)
+      console.log('Navigating to report details for ID:', record?.id)
       try {
-        if (!record) {
-          console.error('记录不存在')
-          message.error('无法查看详情：记录不存在')
+        if (!record || !record.id) {
+          console.error('记录或记录ID不存在')
+          message.error('无法导航到详情：记录信息不完整')
           return
         }
         
-        // 检查是否有错误信息
-        if (record.errorStatus) {
-          let errorMessage = '无法加载测试结果';
-          let errorType = 'error';
-          
-          if (record.errorStatus === 404) {
-            errorMessage = '测试结果数据不存在，可能已被删除';
-            errorType = 'missing';
-          } else if (record.errorMessage) {
-            errorMessage = record.errorMessage;
-          }
-          
-          // 显示警告但不阻止用户查看报告
-          message.warning(errorMessage);
-          
-          // 仍然显示报告，但会标记测试结果数据有问题
-          record.test_result = {
-            _error: true,
-            _errorType: errorType,
-            _errorMessage: errorMessage,
-            _errorStatus: record.errorStatus
-          };
-        }
-        
-        // 如果没有测试结果，创建一个空的测试结果对象
-        if (!record.test_result) {
-          record.test_result = {
-            _error: true,
-            _errorType: 'missing',
-            _errorMessage: '测试结果数据不存在',
-            _errorStatus: 404
-          };
-          message.warning('测试结果数据不存在');
-        }
-        
-        currentDetail.value = record;
-        console.log('Current detail set to:', currentDetail.value);
-        detailVisible.value = true;
+        // 使用 router.push 进行导航
+        // 修改：将路由 name 改为 'health-report-detail' (小写d)
+        router.push({ name: 'health-report-detail', params: { id: record.id } });
+
+        // 不再需要以下代码，因为详情页会自己获取数据
+        // // 检查是否有错误信息
+        // if (record.errorStatus) {
+        //   let errorMessage = '无法加载测试结果';
+        //   let errorType = 'error';
+        //   
+        //   if (record.errorStatus === 404) {
+        //     errorMessage = '测试结果数据不存在，可能已被删除';
+        //     errorType = 'missing';
+        //   } else if (record.errorMessage) {
+        //     errorMessage = record.errorMessage;
+        //   }
+        //   
+        //   // 显示警告但不阻止用户查看报告
+        //   message.warning(errorMessage);
+        //   
+        //   // 仍然显示报告，但会标记测试结果数据有问题
+        //   record.test_result = {
+        //     _error: true,
+        //     _errorType: errorType,
+        //     _errorMessage: errorMessage,
+        //     _errorStatus: record.errorStatus
+        //   };
+        // }
+        // 
+        // // 如果没有测试结果，创建一个空的测试结果对象
+        // if (!record.test_result) {
+        //   record.test_result = {
+        //     _error: true,
+        //     _errorType: 'missing',
+        //     _errorMessage: '测试结果数据不存在',
+        //     _errorStatus: 404
+        //   };
+        //   message.warning('测试结果数据不存在');
+        // }
+        // 
+        // currentDetail.value = record;
+        // console.log('Current detail set to:', currentDetail.value);
+        // detailVisible.value = true;
       } catch (error) {
-        console.error('查看报告详情时出错:', error)
-        message.error('无法查看详情')
+        console.error('导航到报告详情时出错:', error)
+        message.error('无法导航到详情页面')
       }
     }
 
@@ -904,6 +1036,9 @@ export default defineComponent({
       currentDetail,
       searchValue,
       isAdmin,
+      isParent,
+      showParentNotice,
+      closeParentNotice,
       formatDate,
       getScoreColor,
       getScoreTagColor,

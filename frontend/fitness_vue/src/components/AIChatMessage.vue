@@ -1,25 +1,47 @@
 <template>
-  <div :class="['message-container', message.role === 'user' ? 'user-message' : 'ai-message']">
+  <div :class="['message-container', message.role === 'user' ? 'user-message' : 'ai-message']" @mouseover="showControls = true" @mouseleave="showControls = false">
     <div class="message-avatar">
       <i :class="[message.role === 'user' ? 'fas fa-user' : 'fas fa-robot']"></i>
     </div>
     <div class="message-content">
       <div class="message-header">
         <div class="message-sender">{{ message.role === 'user' ? '用户' : 'AI助手' }}</div>
-        <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+        <div class="message-meta">
+          <button 
+            v-if="!isTyping && message.id && !isDeleting" 
+            class="delete-message-btn" 
+            @click="confirmDeleteMessage"
+            title="删除消息"
+          >
+            <i class="fas fa-trash-alt"></i>
+          </button>
+          <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+        </div>
       </div>
-      <div v-if="message.role === 'assistant' && isTyping" class="message-typing">
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
+      <div v-if="isDeleting" class="message-deleting">
+        <span>正在删除...</span>
+      </div>
+      <div v-else-if="message.role === 'assistant' && (isTyping || message.streaming)" class="message-text streaming-text" v-html="formattedContent">
       </div>
       <div v-else class="message-text" v-html="formattedContent"></div>
+    </div>
+    
+    <!-- 确认删除消息模态框 -->
+    <div v-if="showDeleteModal" class="delete-confirm-modal">
+      <div class="delete-confirm-content">
+        <p>确定要删除这条消息吗？</p>
+        <div class="delete-confirm-actions">
+          <button @click="cancelDelete" class="cancel-btn">取消</button>
+          <button @click="deleteMessage" class="confirm-btn">删除</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
@@ -40,17 +62,37 @@ export default {
     isTyping: {
       type: Boolean,
       default: false
+    },
+    conversationId: {
+      type: [Number, String],
+      required: true
     }
   },
   
-  setup(props) {
+  emits: ['message-deleted'],
+  
+  setup(props, { emit }) {
+    const store = useStore();
+    
+    // 状态变量
+    const showControls = ref(false);        // 显示控制按钮
+    const showDeleteModal = ref(false);     // 显示删除对话模态框
+    const isDeleting = ref(false);          // 正在删除消息
+    
     // 处理后的消息内容
     const formattedContent = computed(() => {
       if (!props.message.content) return '';
       
       // 将Markdown转换为HTML，并使用DOMPurify进行净化
       const rawHtml = marked(props.message.content || '');
-      return DOMPurify.sanitize(rawHtml);
+      const sanitizedHtml = DOMPurify.sanitize(rawHtml);
+      
+      // 如果是流式消息，添加光标效果
+      if (props.isTyping || props.message.streaming) {
+        return sanitizedHtml + '<span class="typing-cursor"></span>';
+      }
+      
+      return sanitizedHtml;
     });
     
     // 格式化时间戳
@@ -69,9 +111,48 @@ export default {
       }
     };
     
+    // 确认删除消息
+    const confirmDeleteMessage = () => {
+      showDeleteModal.value = true;
+    };
+    
+    // 取消删除
+    const cancelDelete = () => {
+      showDeleteModal.value = false;
+    };
+    
+    // 删除消息
+    const deleteMessage = async () => {
+      if (!props.message.id || !props.conversationId) return;
+      
+      try {
+        isDeleting.value = true;
+        await store.dispatch('aiChat/deleteMessage', {
+          conversationId: props.conversationId,
+          messageId: props.message.id
+        });
+        
+        // 通知父组件消息已删除
+        emit('message-deleted', props.message.id);
+        
+        // 隐藏删除模态框
+        showDeleteModal.value = false;
+      } catch (error) {
+        console.error('删除消息失败:', error);
+      } finally {
+        isDeleting.value = false;
+      }
+    };
+    
     return {
       formattedContent,
-      formatTime
+      formatTime,
+      showControls,
+      showDeleteModal,
+      isDeleting,
+      confirmDeleteMessage,
+      cancelDelete,
+      deleteMessage
     };
   }
 };
@@ -144,9 +225,40 @@ export default {
   color: #10a37f;
 }
 
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .message-time {
   font-size: 0.8rem;
   color: #888;
+}
+
+.delete-message-btn {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: all 0.2s;
+  margin-right: 5px;
+}
+
+.delete-message-btn:hover {
+  opacity: 1;
+  background-color: rgba(231, 76, 60, 0.2);
+  transform: scale(1.05);
+}
+
+.message-deleting {
+  font-style: italic;
+  color: #888;
+  padding: 0.5rem 0;
 }
 
 .message-text {
@@ -237,12 +349,96 @@ export default {
   animation-delay: 0.4s;
 }
 
+/* 删除确认模态框 */
+.delete-confirm-modal {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  min-width: 200px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.delete-confirm-content {
+  padding: 12px;
+}
+
+.delete-confirm-content p {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cancel-btn, .confirm-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.cancel-btn:hover {
+  background-color: #e5e5e5;
+}
+
+.confirm-btn {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background-color: #c0392b;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes wave {
   0%, 60%, 100% {
     transform: translateY(0);
   }
   30% {
     transform: translateY(-4px);
+  }
+}
+
+/* 流式生成的光标动画 */
+.streaming-text {
+  position: relative;
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  background-color: #10a37f;
+  margin-left: 2px;
+  animation: cursor-blink 0.8s infinite;
+  vertical-align: middle;
+}
+
+@keyframes cursor-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
   }
 }
 

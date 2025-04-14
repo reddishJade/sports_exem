@@ -1,3 +1,12 @@
+<!--
+  @description 体测计划视图组件 - 管理体测活动的安排和计划
+  @roles 所有用户查看，管理员编辑
+  @features
+    - 展示体测计划列表和时间安排
+    - 管理员可添加、编辑和删除计划
+    - 提供计划详情和参与人员查看
+    - 支持计划状态管理和通知
+-->
 <template>
   <div class="test-plan-container">
     <div class="test-plan">
@@ -68,22 +77,28 @@
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'action'">
-              <a-space v-if="isAdmin">
-                <a-button type="link" @click="editPlan(record)" class="action-button">
-                  <edit-outlined /> 编辑
+              <a-space>
+                <a-button type="link" @click="viewPlanDetail(record)" class="action-button">
+                  <eye-outlined /> 详情
                 </a-button>
-                <a-divider type="vertical" />
-                <a-popconfirm
-                  title="确定要删除这个体测计划吗？"
-                  @confirm="deletePlan(record.id)"
-                  placement="topRight"
-                  ok-text="确定"
-                  cancel-text="取消"
-                >
-                  <a-button type="link" danger class="action-button">
-                    <delete-outlined /> 删除
+                <template v-if="isAdmin">
+                  <a-divider type="vertical" />
+                  <a-button type="link" @click="editPlan(record)" class="action-button">
+                    <edit-outlined /> 编辑
                   </a-button>
-                </a-popconfirm>
+                  <a-divider type="vertical" />
+                  <a-popconfirm
+                    title="确定要删除这个体测计划吗？"
+                    @confirm="deletePlan(record.id)"
+                    placement="topRight"
+                    ok-text="确定"
+                    cancel-text="取消"
+                  >
+                    <a-button type="link" danger class="action-button">
+                      <delete-outlined /> 删除
+                    </a-button>
+                  </a-popconfirm>
+                </template>
               </a-space>
             </template>
             <template v-else-if="column.key === 'title'">
@@ -179,6 +194,68 @@
           </a-form-item>
         </a-form>
       </a-modal>
+
+      <!-- 详情模态框 -->
+      <a-modal
+        title="测试计划详情"
+        :open="detailVisible"
+        @cancel="closeDetail"
+        :footer="null"
+        width="700px"
+        class="detail-modal"
+      >
+        <template v-if="currentPlan">
+          <div class="detail-container">
+            <div class="detail-header">
+              <h2 class="detail-title">{{ currentPlan.title }}</h2>
+              <a-tag 
+                :color="isPlanUpcoming(currentPlan) ? 'processing' : 'default'"
+                class="detail-status"
+              >
+                {{ isPlanUpcoming(currentPlan) ? '即将到来' : '已结束' }}
+              </a-tag>
+            </div>
+
+            <div class="detail-info">
+              <div class="info-item">
+                <div class="info-label"><calendar-outlined /> 测试日期</div>
+                <div class="info-value">{{ formatDate(currentPlan.test_date) }}</div>
+              </div>
+              
+              <div class="info-item">
+                <div class="info-label"><environment-outlined /> 测试地点</div>
+                <div class="info-value">{{ currentPlan.location }}</div>
+              </div>
+              
+              <div class="info-item">
+                <div class="info-label">计划类型</div>
+                <div class="info-value">
+                  <a-tag color="blue">{{ currentPlan.plan_type === 'regular' ? '常规测试' : '补考测试' }}</a-tag>
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-description">
+              <h3 class="section-title">详细说明</h3>
+              <div class="description-content">
+                {{ currentPlan.description || '暂无详细描述' }}
+              </div>
+            </div>
+            
+            <div class="detail-actions">
+              <a-button @click="closeDetail">关闭</a-button>
+              <a-button 
+                type="primary" 
+                @click="editPlan(currentPlan)"
+                v-if="isAdmin"
+                class="ml-2"
+              >
+                编辑计划
+              </a-button>
+            </div>
+          </div>
+        </template>
+      </a-modal>
     </div>
   </div>
 </template>
@@ -195,7 +272,8 @@ import {
   SearchOutlined,
   EditOutlined,
   DeleteOutlined,
-  EnvironmentOutlined
+  EnvironmentOutlined,
+  EyeOutlined
 } from '@ant-design/icons-vue'
 
 export default defineComponent({
@@ -206,14 +284,17 @@ export default defineComponent({
     SearchOutlined,
     EditOutlined,
     DeleteOutlined,
-    EnvironmentOutlined
+    EnvironmentOutlined,
+    EyeOutlined
   },
   setup() {
     const store = useStore()
     const loading = ref(false)
     const visible = ref(false)
+    const detailVisible = ref(false)
     const confirmLoading = ref(false)
     const modalTitle = ref('添加体测计划')
+    const currentPlan = ref(null)
     const searchValue = ref('')
     const timeFilter = ref('all')
     const daysRange = ref(30) // 默认显示30天内的计划
@@ -335,8 +416,21 @@ export default defineComponent({
     const fetchPlans = async () => {
       loading.value = true
       try {
+        const params = {}
+        
+        // 如果不是管理员，只获取当前用户相关的测试计划
+        if (!isAdmin.value) {
+          // 家长或者学生用户只能看他们相关的计划
+          if (store.state.userType === 'parent') {
+            params.parent = true; // 家长用户只能查看与其子女相关的计划
+          } else if (store.state.userType === 'student') {
+            params.student = true; // 学生用户只能查看自己相关的计划
+          }
+        }
+        
         const response = await axios.get('http://localhost:8000/api/test-plans/', {
-          headers: { Authorization: `Bearer ${store.state.token}` }
+          headers: { Authorization: `Bearer ${store.state.token}` },
+          params: params
         })
         plans.value = response.data
       } catch (error) {
@@ -428,6 +522,18 @@ export default defineComponent({
         console.error(error)
       }
     }
+    
+    // 查看测试计划详情
+    const viewPlanDetail = (plan) => {
+      currentPlan.value = plan
+      detailVisible.value = true
+    }
+    
+    // 关闭详情模态框
+    const closeDetail = () => {
+      detailVisible.value = false
+      currentPlan.value = null
+    }
 
     onMounted(() => {
       fetchPlans()
@@ -436,6 +542,7 @@ export default defineComponent({
     return {
       loading,
       visible,
+      detailVisible,
       confirmLoading,
       modalTitle,
       plans,
@@ -448,11 +555,14 @@ export default defineComponent({
       searchValue,
       timeFilter,
       daysRange,
+      currentPlan,
       showModal,
       editPlan,
       handleOk,
       handleCancel,
       deletePlan,
+      viewPlanDetail,
+      closeDetail,
       formatDate,
       isPlanUpcoming,
       truncateText,
@@ -618,5 +728,96 @@ export default defineComponent({
 
 .slider-container {
   padding: 0 10px;
+}
+
+/* 详情模态框样式 */
+.detail-modal {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.detail-container {
+  padding: 0 8px;
+}
+
+.detail-header {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.detail-title {
+  margin: 0;
+  font-size: 22px;
+  color: #303133;
+}
+
+.detail-status {
+  font-size: 13px;
+}
+
+.detail-info {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.info-item {
+  flex: 1 1 240px;
+  margin-bottom: 4px;
+}
+
+.info-label {
+  color: #606266;
+  font-size: 14px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.info-value {
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.detail-description {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #303133;
+  padding-left: 10px;
+  border-left: 3px solid #1890ff;
+}
+
+.description-content {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 16px;
+  line-height: 1.6;
+  white-space: pre-line;
+  color: #606266;
+  min-height: 120px;
+}
+
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.ml-2 {
+  margin-left: 8px;
 }
 </style>

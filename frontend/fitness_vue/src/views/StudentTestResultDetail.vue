@@ -1,3 +1,12 @@
+<!--
+  @description 学生测试成绩详情视图组件 - 显示学生单次体测成绩详细信息
+  @roles 学生、家长、管理员
+  @features
+    - 展示学生测试基本信息
+    - 显示各项测试指标和分数
+    - 提供成绩分析和对比
+    - 支持生成和导出成绩报告
+-->
 <template>
   <div class="test-result-detail">
     <a-page-header
@@ -44,6 +53,14 @@
             <a-descriptions-item label="BMI">
               <span :class="getBMIClass(testResult.bmi)">{{ testResult.bmi }}</span>
             </a-descriptions-item>
+            
+            <a-descriptions-item label="肺活量(ml)">
+              <span :class="getItemScoreClass(testResult.vital_capacity_score)">
+                {{ testResult.vital_capacity || 0 }}
+                <a-tag color="blue" v-if="testResult.vital_capacity_score">{{ testResult.vital_capacity_score }}分</a-tag>
+              </span>
+            </a-descriptions-item>
+            
             <a-descriptions-item label="50米跑(秒)">
               <span :class="getItemScoreClass(testResult.running_score)">
                 {{ testResult.running_50m }}
@@ -62,7 +79,7 @@
                 <a-tag color="blue" v-if="testResult.sit_ups_score">{{ testResult.sit_ups_score }}分</a-tag>
               </span>
             </a-descriptions-item>
-            <a-descriptions-item label="1000米/800米(分:秒)">
+            <a-descriptions-item label="800米/1000米(秒)">
               <span :class="getItemScoreClass(testResult.endurance_run_score)">
                 {{ testResult.endurance_run }}
                 <a-tag color="blue" v-if="testResult.endurance_run_score">{{ testResult.endurance_run_score }}分</a-tag>
@@ -171,40 +188,101 @@ let scoreChartInstance = null
 const fetchTestResult = async () => {
   loading.value = true
   try {
-    // 在实际应用中，这里应该使用真实的API调用
-    // 在此使用模拟数据
-    const response = await axios.get(`/api/test-results/${testResultId}`)
-    testResult.value = response.data
+    console.log(`获取测试结果详情，ID: ${testResultId}`)
+    
+    // 调用API获取测试结果数据
+    console.log(`开始调用API获取测试结果: /api/test-results/${testResultId}/`)
+    const response = await axios.get(`/api/test-results/${testResultId}/`)
+    console.log('测试结果 API 响应:', response)
+    
+    if (!response.data) {
+      throw new Error('API返回的数据为空')
+    }
+    
+    const testData = response.data
+    console.log('获取到的测试数据:', JSON.stringify(testData))
+    
+    // 处理API返回的测试数据
+    
+    // 将测试数据保存到testResult对象中
+    testResult.value = {
+      id: testResultId,
+      
+      // 测试计划信息
+      test_plan_title: testData.test_plan?.title || '未知测试计划',
+      test_date: testData.test_date || '未知日期',
+      
+      // 学生信息
+      student_name: testData.student?.name || '未知',
+      student_id: testData.student?.student_id || '未知',
+      class_name: testData.student?.class_name || '未知班级',
+      
+      // BMI相关数据
+      height: testData.height || 0,
+      weight: testData.weight || 0,
+      bmi: testData.bmi || 0,
+      
+      // 测试项目数据
+      vital_capacity: testData.vital_capacity || 0,
+      running_50m: testData.run_50m || 0,
+      flexibility: testData.sit_and_reach || 0,
+      long_jump: testData.standing_jump || 0,
+      endurance_run: testData.run_800m || 0,
+      sit_ups: testData.sit_ups || 0,
+      
+      // 各项得分
+      total_score: testData.total_score || 0,
+      vital_capacity_score: testData.vital_capacity_score || 0,
+      running_score: testData.run_50m_score || 0,
+      long_jump_score: testData.standing_jump_score || 0,
+      sit_ups_score: testData.sit_ups_score || 0,
+      endurance_run_score: testData.run_800m_score || 0,
+      flexibility_score: testData.sit_and_reach_score || 0,
+      
+      // 排名信息
+      class_rank: testData.class_rank || 10,
+      class_total: testData.class_total || 45,
+      
+      // 评语
+      teacher_comments: testData.teacher_comments || '暂无评语'
+    }
+    
+    console.log('处理后的测试结果数据:', JSON.stringify(testResult.value))
+    
   } catch (error) {
     console.error('获取测试结果失败:', error)
     message.error('获取测试结果详情失败，请稍后再试')
-    // 使用模拟数据以展示页面
+    // 设置加载状态为失败，不使用模拟数据
+    loading.value = false
+    // 初始化空对象，避免显示错误数据
     testResult.value = {
       id: testResultId,
-      test_plan_title: '2023年秋季体能测试',
-      test_date: '2023-10-15',
-      student_name: '张三',
-      student_id: '2023001',
-      class_name: '高二(1)班',
-      height: 175,
-      weight: 65,
-      bmi: 21.2,
-      running_50m: 7.2,
-      running_score: 90,
-      long_jump: 230,
-      long_jump_score: 85,
-      sit_ups: 48,
-      sit_ups_score: 92,
-      endurance_run: '3:45',
-      endurance_run_score: 88,
-      flexibility: 12.5,
-      flexibility_score: 80,
-      total_score: 87,
-      teacher_comments: '总体表现良好，建议加强耐力训练，提高长跑能力。',
-      health_suggestions: '身体各项指标正常，建议保持良好的运动习惯，每周至少进行3次30分钟以上的有氧运动。',
-      class_rank: 5,
-      class_total: 45
+      test_plan_title: '',
+      test_date: '',
+      student_name: '',
+      student_id: '',
+      class_name: '',
+      height: 0,
+      weight: 0,
+      bmi: 0,
+      running_50m: 0,
+      running_score: 0,
+      long_jump: 0,
+      long_jump_score: 0,
+      sit_ups: 0,
+      sit_ups_score: 0,
+      endurance_run: '',
+      endurance_run_score: 0,
+      flexibility: 0,
+      flexibility_score: 0,
+      total_score: 0,
+      teacher_comments: '',
+      health_suggestions: '',
+      class_rank: 0,
+      class_total: 0
     }
+    // 返回错误，不继续执行
+    return
   } finally {
     loading.value = false
     nextTick(() => {

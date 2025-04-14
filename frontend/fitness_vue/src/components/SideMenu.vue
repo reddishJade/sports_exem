@@ -1,63 +1,63 @@
-&lt;template>
-  &lt;a-menu
+<template>
+  <a-menu
     v-model:selectedKeys="selectedKeys"
     v-model:openKeys="openKeys"
     mode="inline"
     theme="dark"
     :inline-collapsed="collapsed"
   >
-    &lt;a-menu-item key="dashboard" @click="navigateTo('/')">
-      &lt;template #icon>
-        &lt;dashboard-outlined />
-      &lt;/template>
-      &lt;span>首页&lt;/span>
-    &lt;/a-menu-item>
+    <a-menu-item key="dashboard" @click="navigateTo('/')">
+      <template #icon>
+        <dashboard-outlined />
+      </template>
+      <span>首页</span>
+    </a-menu-item>
 
-    &lt;a-menu-item key="test-results" @click="navigateTo('/test-results')">
-      &lt;template #icon>
-        &lt;bar-chart-outlined />
-      &lt;/template>
-      &lt;span>成绩查询&lt;/span>
-    &lt;/a-menu-item>
+    <a-menu-item key="test-results" @click="navigateTo('/test-results')">
+      <template #icon>
+        <bar-chart-outlined />
+      </template>
+      <span>成绩查询</span>
+    </a-menu-item>
 
-    &lt;a-menu-item key="test-plans" @click="navigateTo('/test-plans')">
-      &lt;template #icon>
-        &lt;calendar-outlined />
-      &lt;/template>
-      &lt;span>测试计划&lt;/span>
-    &lt;/a-menu-item>
+    <a-menu-item key="test-plans" @click="navigateTo('/test-plans')">
+      <template #icon>
+        <calendar-outlined />
+      </template>
+      <span>测试计划</span>
+    </a-menu-item>
 
-    &lt;a-menu-item key="physical-standards" @click="navigateTo('/physical-standards')">
-      &lt;template #icon>
-        &lt;trophy-outlined />
-      &lt;/template>
-      &lt;span>体测标准&lt;/span>
-    &lt;/a-menu-item>
+    <a-menu-item key="physical-standards" @click="navigateTo('/physical-standards')">
+      <template #icon>
+        <trophy-outlined />
+      </template>
+      <span>体测标准</span>
+    </a-menu-item>
 
-    &lt;a-menu-item key="health-reports" @click="navigateTo('/health-reports')">
-      &lt;template #icon>
-        &lt;medicine-box-outlined />
-      &lt;/template>
-      &lt;span>健康报告&lt;/span>
-    &lt;/a-menu-item>
+    <a-menu-item key="health-reports" @click="navigateTo('/health-reports')">
+      <template #icon>
+        <medicine-box-outlined />
+      </template>
+      <span>健康报告</span>
+    </a-menu-item>
 
-    &lt;a-menu-item key="notifications" @click="navigateTo('/notifications')">
-      &lt;template #icon>
-        &lt;notification-outlined />
-      &lt;/template>
-      &lt;span>补考通知&lt;/span>
-    &lt;/a-menu-item>
+    <a-menu-item key="notifications" @click="navigateTo('/notifications')">
+      <template #icon>
+        <notification-outlined />
+      </template>
+      <span>补考通知</span>
+    </a-menu-item>
 
-    &lt;a-menu-item key="profile" @click="navigateTo('/profile')">
-      &lt;template #icon>
-        &lt;user-outlined />
-      &lt;/template>
-      &lt;span>个人信息&lt;/span>
-    &lt;/a-menu-item>
-  &lt;/a-menu>
-&lt;/template>
+    <a-menu-item key="profile" @click="navigateTo('/profile')">
+      <template #icon>
+        <user-outlined />
+      </template>
+      <span>个人信息</span>
+    </a-menu-item>
+  </a-menu>
+</template>
 
-&lt;script setup>
+<script setup>
 import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
@@ -92,10 +92,10 @@ watch(
     selectedKeys.value = [path.split('/')[1] || 'dashboard']
   }
 )
-&lt;/script>
+</script>
 
-&lt;style scoped>
+<style scoped>
 .ant-menu {
   height: 100%;
 }
-&lt;/style>
+</style>

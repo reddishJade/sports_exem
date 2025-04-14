@@ -1,3 +1,14 @@
+<!--
+  @description 体测成绩录入组件
+  @roles 管理员、教师 - 录入学生体测成绩
+  @functionality
+    - 提供专门的成绩录入表单界面
+    - 支持选择测试计划和学生
+    - 自动计算BMI指数
+    - 录入各项体测指标（身高、体重、跑步、跳远等）
+    - 数据验证与提交功能
+-->
+
 <template>
   <div class="test-result-input">
     <a-card title="测试成绩录入" :bordered="false">

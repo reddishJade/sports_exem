@@ -1,3 +1,15 @@
+<!--
+  @description 应用主布局组件 - 包含侧边栏、顶部导航和内容区域
+  @author Fitness System Team
+  @date 2025-04-13
+  @version 1.2.0
+  @roles 所有用户
+  @features 
+    - 响应式布局设计
+    - 根据用户角色动态显示菜单项
+    - 用户信息弹窗
+    - 深色/浅色主题切换
+-->
 <template>
   <a-config-provider :locale="zhCN">
     <div class="app-container">
@@ -226,8 +238,10 @@
             <a-layout-content class="site-content">
               <div class="content-wrapper">
                 <router-view v-slot="{ Component }">
-                  <transition name="fade" mode="out-in">
-                    <component :is="Component" />
+                  <transition name="fade">
+                    <div :key="$route.fullPath" class="route-wrapper">
+                      <component :is="Component" />
+                    </div>
                   </transition>
                 </router-view>
               </div>
@@ -246,8 +260,10 @@
       
       <template v-else>
         <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" />
+          <transition name="fade">
+            <div :key="$route.fullPath" class="route-wrapper">
+              <component :is="Component" />
+            </div>
           </transition>
         </router-view>
       </template>
@@ -256,35 +272,34 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useStore } from 'vuex'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import {
+import { useStore } from 'vuex'
+import { message } from 'ant-design-vue'
+import zhCN from 'ant-design-vue/es/locale/zh_CN'
+import { 
   HomeOutlined,
   TeamOutlined,
   CalendarOutlined,
   FileTextOutlined,
+  TrophyOutlined,
   BarChartOutlined,
   MedicineBoxOutlined,
-  UserOutlined,
-  DownOutlined,
-  LogoutOutlined,
   ReadOutlined,
+  BellOutlined,
+  MessageOutlined,
+  UserOutlined,
+  DashboardOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  DashboardOutlined,
-  TrophyOutlined,
-  TableOutlined,
-  FormOutlined,
-  PieChartOutlined,
-  FilePdfOutlined,
+  LoginOutlined,
+  SettingOutlined,
+  ProfileOutlined,
+  LogoutOutlined,
   NotificationOutlined,
-  MessageOutlined
+  DownOutlined
 } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
-import zhCN from 'ant-design-vue/es/locale/zh_CN'
-
-// 引入自定义组件
+// 定义内联的 BreadcrumbNav 组件
 const BreadcrumbNav = {
   template: `
     <a-breadcrumb class="breadcrumb">
@@ -331,6 +346,18 @@ const BreadcrumbNav = {
 const store = useStore()
 const router = useRouter()
 const route = useRoute()
+
+// 应用初始化时加载用户详细信息（包含学生资料）
+onMounted(async () => {
+  if (store.getters.isAuthenticated) {
+    try {
+      await store.dispatch('fetchCurrentUser')
+      console.log('用户信息已加载', store.state.user)
+    } catch (error) {
+      console.error('获取用户信息失败:', error)
+    }
+  }
+})
 
 const collapsed = ref(false)
 const selectedKeys = ref([route.path])
@@ -617,6 +644,8 @@ body {
 .site-content {
   padding: 24px;
   overflow-y: auto;
+  height: calc(100vh - var(--header-height));
+  max-height: calc(100vh - var(--header-height));
 }
 
 .content-wrapper {
@@ -624,7 +653,9 @@ body {
   padding: 24px;
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  min-height: calc(100vh - var(--header-height) - var(--footer-height) - 48px);
+  min-height: 100px;
+  height: auto;
+  overflow-y: visible;
 }
 
 /* 页脚样式 */

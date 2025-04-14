@@ -1,3 +1,12 @@
+<!--
+  @description 用户个人信息视图组件 - 展示和管理用户个人信息
+  @roles 所有已认证用户
+  @features
+    - 展示用户基本信息和头像
+    - 支持修改个人信息和密码
+    - 显示用户角色和权限信息
+    - 提供账户安全设置
+-->
 <template>
   <div class="profile-container">
     <a-page-header
