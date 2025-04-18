@@ -20,15 +20,16 @@
         <small>按 Enter 发送. Shift+Enter 换行.</small>
       </div>
       <div class="controls">
-        <button 
-          @click="clearMessage" 
-          class="clear-btn" 
-          :disabled="disabled || !messageText">
-          <i class="fas fa-eraser"></i>
+        <button
+          @click="clearMessage"
+          class="clear-btn"
+          :disabled="disabled || !messageText"
+          title="清空输入框">
+          <i class="fas fa-eraser"></i> 清空
         </button>
-        <button 
-          @click="sendMessage" 
-          class="send-btn" 
+        <button
+          @click="sendMessage"
+          class="send-btn"
           :disabled="disabled || !messageText.trim()">
           <i class="fas fa-paper-plane"></i> 发送
         </button>
@@ -42,7 +43,7 @@ import { ref } from 'vue';
 
 export default {
   name: 'AIChatInput',
-  
+
   props: {
     // 是否禁用输入
     disabled: {
@@ -50,42 +51,42 @@ export default {
       default: false
     }
   },
-  
+
   emits: ['send-message'],
-  
+
   setup(props, { emit }) {
     // 消息文本
     const messageText = ref('');
     // 选中的模型
     const selectedModel = ref('auto');
-    
+
     // 发送消息
     const sendMessage = () => {
       if (props.disabled || !messageText.value.trim()) return;
-      
+
       emit('send-message', {
         message: messageText.value,
         serviceType: selectedModel.value
       });
-      
+
       // 清空输入
       messageText.value = '';
     };
-    
+
     // 清空消息
     const clearMessage = () => {
       messageText.value = '';
     };
-    
+
     // 在按下Shift+Enter时添加换行
     const newLine = (e) => {
       messageText.value += '\n';
     };
-    
+
     // 设置消息文本 - 用于提示词建议
     const setMessage = (text) => {
       messageText.value = text;
-      
+
       // 自动聚焦输入框
       setTimeout(() => {
         const textarea = document.querySelector('.message-input');
@@ -94,7 +95,7 @@ export default {
         }
       }, 100);
     };
-    
+
     return {
       messageText,
       selectedModel,
@@ -159,7 +160,6 @@ export default {
 }
 
 .clear-btn, .send-btn {
-  border: none;
   border-radius: 8px;
   padding: 0.6rem 1rem;
   cursor: pointer;
@@ -168,26 +168,32 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 90px;
+  justify-content: center;
 }
 
 .clear-btn {
   background-color: #f5f5f5;
   color: #666;
+  border: 1px solid #e0e0e0;
 }
 
 .clear-btn:hover:not(:disabled) {
   background-color: #e5e5e5;
+  border-color: #d0d0d0;
 }
 
 .send-btn {
   background-color: #10a37f;
   color: white;
+  border: 1px solid #10a37f;
 }
 
 .send-btn:hover:not(:disabled) {
   background-color: #0d8c6c;
   transform: translateY(-2px);
   box-shadow: 0 3px 8px rgba(16, 163, 127, 0.15);
+  border-color: #0d8c6c;
 }
 
 .send-btn:active:not(:disabled) {
@@ -225,15 +231,15 @@ button:disabled {
     align-items: flex-start;
     gap: 8px;
   }
-  
+
   .hints {
     margin-bottom: 8px;
   }
-  
+
   .controls {
     width: 100%;
   }
-  
+
   .send-btn {
     flex: 1;
     justify-content: center;
