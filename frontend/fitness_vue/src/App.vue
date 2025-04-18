@@ -4,7 +4,7 @@
   @date 2025-04-13
   @version 1.2.0
   @roles 所有用户
-  @features 
+  @features
     - 响应式布局设计
     - 根据用户角色动态显示菜单项
     - 用户信息弹窗
@@ -42,66 +42,66 @@
                 </template>
                 <router-link to="/">首页</router-link>
               </a-menu-item>
-              
+
               <a-menu-item key="/students" v-if="isAdmin">
                 <template #icon>
                   <TeamOutlined />
                 </template>
                 <router-link to="/students">学生管理</router-link>
               </a-menu-item>
-              
+
               <a-menu-item key="/test-plans">
                 <template #icon>
                   <CalendarOutlined />
                 </template>
                 <router-link to="/test-plans">测试计划</router-link>
               </a-menu-item>
-              
+
               <!-- 成绩管理子菜单 -->
               <a-sub-menu key="test-results-sub" v-if="isAdmin">
                 <template #icon>
                   <FileTextOutlined />
                 </template>
                 <template #title>成绩管理</template>
-                
+
                 <a-menu-item key="/test-results">
                   <router-link to="/test-results">成绩总览</router-link>
                 </a-menu-item>
-                
+
                 <a-menu-item key="/test-results-input">
                   <router-link to="/test-results-input">成绩录入</router-link>
                 </a-menu-item>
-                
+
                 <a-menu-item key="/test-results-analysis">
                   <router-link to="/test-results-analysis">成绩分析</router-link>
                 </a-menu-item>
-                
+
                 <a-menu-item key="/test-results-reports">
                   <router-link to="/test-results-reports">成绩报表</router-link>
                 </a-menu-item>
               </a-sub-menu>
-              
+
               <a-menu-item key="/scores" v-if="!isAdmin">
                 <template #icon>
                   <TrophyOutlined />
                 </template>
                 <router-link to="/scores">我的成绩</router-link>
               </a-menu-item>
-              
+
               <a-menu-item key="/physical-standards">
                 <template #icon>
                   <BarChartOutlined />
                 </template>
                 <router-link to="/physical-standards">体测标准</router-link>
               </a-menu-item>
-              
+
               <a-menu-item key="/health-reports">
                 <template #icon>
                   <MedicineBoxOutlined />
                 </template>
                 <router-link to="/health-reports">体质报告</router-link>
               </a-menu-item>
-              
+
               <a-menu-item key="/news">
                 <template #icon>
                   <ReadOutlined />
@@ -131,13 +131,13 @@
               </a-menu-item>
             </a-menu>
           </a-layout-sider>
-          
+
           <a-layout class="site-layout">
             <a-layout-header class="site-header">
               <div class="header-left">
                 <a-button
                   type="text"
-                  class="trigger-button" 
+                  class="trigger-button"
                   @click="collapsed = !collapsed"
                 >
                   <MenuFoldOutlined v-if="!collapsed" />
@@ -168,7 +168,7 @@
                     </a-menu>
                   </template>
                 </a-dropdown>
-                
+
                 <!-- 用户信息弹窗 -->
                 <a-modal
                   v-model:open="userInfoModalVisible"
@@ -186,9 +186,9 @@
                         <a-tag :color="userTypeColor">{{ userTypeText }}</a-tag>
                       </div>
                     </div>
-                    
+
                     <a-divider />
-                    
+
                     <a-descriptions bordered>
                       <a-descriptions-item label="用户名" :span="3">
                         {{ username }}
@@ -206,7 +206,7 @@
                         {{ formatDate(store.state.user?.date_joined) || '未记录' }}
                       </a-descriptions-item>
                     </a-descriptions>
-                    
+
                     <template v-if="store.state.user?.user_type === 'student' && store.state.user?.student_profile">
                       <a-divider>学生信息</a-divider>
                       <a-descriptions bordered>
@@ -224,7 +224,7 @@
                         </a-descriptions-item>
                       </a-descriptions>
                     </template>
-                    
+
                     <div class="user-info-actions">
                       <a-button type="primary" @click="userInfoModalVisible = false">
                         关闭
@@ -234,7 +234,7 @@
                 </a-modal>
               </div>
             </a-layout-header>
-            
+
             <a-layout-content class="site-content">
               <div class="content-wrapper">
                 <router-view v-slot="{ Component }">
@@ -246,7 +246,7 @@
                 </router-view>
               </div>
             </a-layout-content>
-            
+
             <a-layout-footer class="footer">
               <div class="footer-content">
                 <span>体测管理系统 2025</span>
@@ -257,7 +257,7 @@
           </a-layout>
         </a-layout>
       </template>
-      
+
       <template v-else>
         <router-view v-slot="{ Component }">
           <transition name="fade">
@@ -277,7 +277,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useStore } from 'vuex'
 import { message } from 'ant-design-vue'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
-import { 
+import {
   HomeOutlined,
   TeamOutlined,
   CalendarOutlined,
@@ -313,7 +313,7 @@ const BreadcrumbNav = {
     const breadcrumbItems = computed(() => {
       const paths = route.path.split('/').filter(Boolean)
       if (paths.length === 0) return ['首页']
-      
+
       const items = ['首页']
       const pathMap = {
         'students': '学生管理',
@@ -327,16 +327,16 @@ const BreadcrumbNav = {
         'ai-chat': 'AI助手',
         'profile': '个人信息'
       }
-      
+
       paths.forEach(path => {
         if (pathMap[path]) {
           items.push(pathMap[path])
         }
       })
-      
+
       return items
     })
-    
+
     return {
       breadcrumbItems
     }
@@ -347,14 +347,39 @@ const store = useStore()
 const router = useRouter()
 const route = useRoute()
 
-// 应用初始化时加载用户详细信息（包含学生资料）
+// 应用初始化时尝试自动登录并加载用户详细信息
 onMounted(async () => {
-  if (store.getters.isAuthenticated) {
+  // 尝试自动登录
+  const token = localStorage.getItem('token');
+  const refreshToken = localStorage.getItem('refreshToken');
+
+  if (token && refreshToken && !store.getters.isAuthenticated) {
+    // 如果有token但store中没有认证状态，尝试恢复会话
     try {
-      await store.dispatch('fetchCurrentUser')
-      console.log('用户信息已加载', store.state.user)
+      // 将token设置到store中
+      store.commit('setToken', { access: token, refresh: refreshToken });
+
+      // 加载用户信息
+      await store.dispatch('fetchCurrentUser');
+      console.log('自动登录成功，用户信息已加载', store.state.user);
+
+      // 如果当前在登录页面，重定向到首页
+      if (route.path === '/login') {
+        router.push('/');
+      }
     } catch (error) {
-      console.error('获取用户信息失败:', error)
+      console.error('自动登录失败:', error);
+      // 清除本地存储的token
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+    }
+  } else if (store.getters.isAuthenticated) {
+    // 如果已经认证，只需加载用户信息
+    try {
+      await store.dispatch('fetchCurrentUser');
+      console.log('用户信息已加载', store.state.user);
+    } catch (error) {
+      console.error('获取用户信息失败:', error);
     }
   }
 })
@@ -689,11 +714,11 @@ body {
   .site-content {
     padding: 12px;
   }
-  
+
   .content-wrapper {
     padding: 16px;
   }
-  
+
   .username {
     display: none;
   }
