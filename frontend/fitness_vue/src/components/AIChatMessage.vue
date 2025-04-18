@@ -9,7 +9,7 @@
         <div class="message-meta">
           <div v-if="showControls && !isTyping && !isDeleting" class="message-actions">
             <button
-              class="copy-message-btn"
+              class="action-btn copy-message-btn"
               @click="copyMessageContent"
               title="复制消息"
             >
@@ -17,7 +17,7 @@
             </button>
             <button
               v-if="message.id"
-              class="delete-message-btn"
+              class="action-btn delete-message-btn"
               @click="confirmDeleteMessage"
               title="删除消息"
             >
@@ -29,6 +29,11 @@
       </div>
       <div v-if="isDeleting" class="message-deleting">
         <span>正在删除...</span>
+        <div class="loading-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
       </div>
       <div v-else-if="message.role === 'assistant' && (isTyping || message.streaming)" class="message-text streaming-text" v-html="formattedContent">
       </div>
@@ -58,6 +63,10 @@
     <!-- 确认删除消息模态框 -->
     <div v-if="showDeleteModal" class="delete-confirm-modal">
       <div class="delete-confirm-content">
+        <div class="delete-modal-header">
+          <i class="fas fa-exclamation-triangle warning-icon"></i>
+          <h3>删除确认</h3>
+        </div>
         <p>确定要删除这条消息吗？</p>
         <div class="delete-confirm-actions">
           <button @click="cancelDelete" class="cancel-btn">取消</button>
@@ -245,8 +254,6 @@ export default {
       }
     };
 
-
-
     // 设置消息反馈
     const setReaction = (type) => {
       // 如果已经选中了这个反馈，则取消选中
@@ -285,44 +292,59 @@ export default {
 <style scoped>
 .message-container {
   display: flex;
-  margin-bottom: 1rem;
-  padding: 0.5rem;
-  border-radius: 8px;
-  transition: background-color 0.2s;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .message-container:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(0, 0, 0, 0.03);
+  transform: translateY(-1px);
 }
 
 .user-message {
   margin-left: 2rem;
+  border-left: 3px solid #4d7cfe;
 }
 
 .ai-message {
   margin-right: 2rem;
   background-color: rgba(16, 163, 127, 0.05);
+  border-left: 3px solid #10a37f;
 }
 
 .message-avatar {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 12px;
+  margin-right: 16px;
   flex-shrink: 0;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.message-avatar:hover {
+  transform: scale(1.05);
 }
 
 .user-message .message-avatar {
-  background-color: #4d7cfe;
+  background: linear-gradient(135deg, #4d7cfe, #5a8eff);
   color: white;
 }
 
 .ai-message .message-avatar {
-  background-color: #10a37f;
+  background: linear-gradient(135deg, #10a37f, #12b48a);
   color: white;
+}
+
+.message-avatar i {
+  font-size: 1.2rem;
 }
 
 .message-content {
@@ -333,12 +355,14 @@ export default {
 .message-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  align-items: center;
 }
 
 .message-sender {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
 }
 
 .user-message .message-sender {
@@ -352,33 +376,35 @@ export default {
 .message-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .message-actions {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
 }
 
 .message-time {
   font-size: 0.8rem;
   color: #888;
+  background-color: rgba(0, 0, 0, 0.03);
+  padding: 2px 8px;
+  border-radius: 12px;
 }
 
-.copy-message-btn,
-.delete-message-btn {
-  padding: 4px;
-  font-size: 0.8rem;
-  border-radius: 4px;
+.action-btn {
+  padding: 6px;
+  font-size: 0.85rem;
+  border-radius: 6px;
   cursor: pointer;
   opacity: 0.9;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: 1px solid;
 }
 
@@ -391,8 +417,8 @@ export default {
 .copy-message-btn:hover {
   opacity: 1;
   background-color: rgba(52, 152, 219, 0.2);
-  transform: scale(1.05);
-  box-shadow: 0 2px 5px rgba(52, 152, 219, 0.2);
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(52, 152, 219, 0.2);
 }
 
 .delete-message-btn {
@@ -401,41 +427,72 @@ export default {
   color: #e74c3c;
 }
 
-
-
 .delete-message-btn:hover {
   opacity: 1;
   background-color: rgba(231, 76, 60, 0.2);
-  transform: scale(1.05);
-  box-shadow: 0 2px 5px rgba(231, 76, 60, 0.2);
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(231, 76, 60, 0.2);
 }
 
 .message-deleting {
   font-style: italic;
   color: #888;
   padding: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.loading-dots span {
+  width: 6px;
+  height: 6px;
+  background-color: #888;
+  border-radius: 50%;
+  display: inline-block;
+  animation: loadingDots 1.4s infinite ease-in-out both;
+}
+
+.loading-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes loadingDots {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1.0); }
 }
 
 .message-text {
   white-space: pre-wrap;
-  line-height: 1.5;
+  line-height: 1.6;
   overflow-wrap: break-word;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  color: #333;
 }
 
 /* 为Markdown内容添加样式 */
 .message-text :deep(p) {
-  margin: 0.5rem 0;
+  margin: 0.8rem 0;
 }
 
 .message-text :deep(pre) {
-  padding: 0.75rem;
-  background-color: #f6f8fa;
-  border-radius: 6px;
-  border: 1px solid #e1e4e8;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e8eaed;
   overflow-x: auto;
-  margin: 0.5rem 0;
+  margin: 1rem 0;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.05);
 }
 
 .message-text :deep(code) {
@@ -453,139 +510,56 @@ export default {
 }
 
 .message-text :deep(ul), .message-text :deep(ol) {
-  padding-left: 1.5rem;
-  margin: 0.5rem 0;
+  padding-left: 1.8rem;
+  margin: 1rem 0;
+}
+
+.message-text :deep(li) {
+  margin-bottom: 0.5rem;
 }
 
 .message-text :deep(blockquote) {
-  margin: 0.5rem 0;
-  padding-left: 1rem;
-  border-left: 3px solid #e1e4e8;
-  color: #6a737d;
+  margin: 1rem 0;
+  padding: 0.8rem 1rem;
+  border-left: 4px solid #10a37f;
+  background-color: rgba(16, 163, 127, 0.05);
+  color: #494949;
+  border-radius: 0 6px 6px 0;
 }
 
 .message-text :deep(table) {
   border-collapse: collapse;
   width: 100%;
-  margin: 0.5rem 0;
+  margin: 1rem 0;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 .message-text :deep(th), .message-text :deep(td) {
-  border: 1px solid #e1e4e8;
-  padding: 6px 13px;
+  border: 1px solid #e8eaed;
+  padding: 10px 16px;
 }
 
 .message-text :deep(th) {
-  background-color: #f6f8fa;
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.message-text :deep(tr:nth-child(even)) {
+  background-color: #f8f9fa;
 }
 
 /* 打字动画效果 */
-.message-typing {
-  display: flex;
-  align-items: center;
-  height: 24px;
-}
-
-.dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: #10a37f;
-  margin-right: 4px;
-  animation: wave 1.5s infinite ease-in-out;
-}
-
-.dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-/* 删除确认模态框 */
-.delete-confirm-modal {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  right: 0;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  z-index: 10;
-  min-width: 200px;
-  animation: fadeIn 0.2s ease-in-out;
-}
-
-.delete-confirm-content {
-  padding: 12px;
-}
-
-.delete-confirm-content p {
-  margin: 0 0 10px 0;
-  font-size: 0.9rem;
-}
-
-.delete-confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.cancel-btn, .confirm-btn {
-  padding: 6px 12px;
-  border-radius: 4px;
-  border: none;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.cancel-btn {
-  background-color: #f5f5f5;
-  color: #666;
-}
-
-.cancel-btn:hover {
-  background-color: #e5e5e5;
-}s
-
-.confirm-btn {
-  background-color: #e74c3c;
-  color: white;
-}
-
-.confirm-btn:hover {
-  background-color: #c0392b;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes wave {
-  0%, 60%, 100% {
-    transform: translateY(0);
-  }
-  30% {
-    transform: translateY(-4px);
-  }
-}
-
-/* 流式生成的光标动画 */
-.streaming-text {
-  position: relative;
-}
-
 .typing-cursor {
   display: inline-block;
-  width: 8px;
-  height: 15px;
+  width: 3px;
+  height: 18px;
   background-color: #10a37f;
-  margin-left: 2px;
-  animation: cursor-blink 0.8s infinite;
+  margin-left: 4px;
+  animation: cursor-blink 1s infinite;
   vertical-align: middle;
+  border-radius: 1px;
 }
 
 @keyframes cursor-blink {
@@ -597,12 +571,10 @@ export default {
   }
 }
 
-
-
 .message-reactions {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 12px;
   justify-content: flex-end;
 }
 
@@ -610,31 +582,34 @@ export default {
   background: transparent;
   border: 1px solid #e0e0e0;
   color: #888;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
 }
 
 .reaction-btn:hover {
   background-color: rgba(0, 0, 0, 0.05);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
 .reaction-btn.active.like {
   background-color: rgba(46, 204, 113, 0.2);
   border-color: rgba(46, 204, 113, 0.5);
   color: #27ae60;
+  box-shadow: 0 3px 8px rgba(46, 204, 113, 0.3);
 }
 
 .reaction-btn.active.dislike {
   background-color: rgba(231, 76, 60, 0.2);
   border-color: rgba(231, 76, 60, 0.5);
   color: #e74c3c;
+  box-shadow: 0 3px 8px rgba(231, 76, 60, 0.3);
 }
 
 /* 删除消息确认模态框 */
@@ -644,44 +619,99 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  animation: fadeIn 0.3s ease;
+  backdrop-filter: blur(3px);
 }
 
 .delete-confirm-content {
   background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: 300px;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  width: 360px;
   text-align: center;
+  animation: modalEnter 0.4s ease;
+}
+
+.delete-modal-header {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.warning-icon {
+  font-size: 2rem;
+  color: #e74c3c;
+}
+
+.delete-modal-header h3 {
+  margin: 0;
+  color: #333;
+  font-weight: 600;
+}
+
+.delete-confirm-content p {
+  margin: 0 0 20px 0;
+  font-size: 1rem;
+  color: #666;
 }
 
 .delete-confirm-actions {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 16px;
+  margin-top: 24px;
 }
 
-.delete-confirm-actions .cancel-btn {
-  padding: 6px 12px;
-  background-color: #f5f5f5;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+.cancel-btn, .confirm-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.95rem;
   cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  min-width: 100px;
 }
 
-.delete-confirm-actions .confirm-btn {
-  padding: 6px 12px;
+.cancel-btn {
+  background-color: #f5f5f5;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.cancel-btn:hover {
+  background-color: #e5e5e5;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+.confirm-btn {
   background-color: #e74c3c;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+}
+
+.confirm-btn:hover {
+  background-color: #c0392b;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 6px rgba(231, 76, 60, 0.3);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalEnter {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 768px) {
@@ -693,64 +723,29 @@ export default {
     margin-right: 0.5rem;
   }
 
+  .message-container {
+    padding: 0.8rem;
+  }
+
   .message-actions {
-    flex-direction: column;
-    gap: 3px;
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .action-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
   }
 
   .message-reactions {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .delete-confirm-content {
     width: 90%;
-    max-width: 300px;
+    max-width: 320px;
+    padding: 20px;
   }
-}
-/* 删除消息确认模态框 */
-.delete-confirm-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.delete-confirm-content {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: 300px;
-  text-align: center;
-}
-
-.delete-confirm-actions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.delete-confirm-actions .cancel-btn {
-  padding: 6px 12px;
-  background-color: #f5f5f5;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.delete-confirm-actions .confirm-btn {
-  padding: 6px 12px;
-  background-color: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 </style>
